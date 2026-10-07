@@ -1,0 +1,18 @@
+node_modules/
+build/
+dist/
+coverage/
+playwright-report/
+test-results/
+artifacts/
+reports/*
+!reports/.gitkeep
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Agent skills cài từ ngoài
+.agents/
+.claude/
+skills-lock.json

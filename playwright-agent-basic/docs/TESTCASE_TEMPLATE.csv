@@ -1,0 +1,16 @@
+Test_Case_ID,Module,Sub_Module,Test_Type,Priority,Test_Title,Preconditions,Test_Steps,Test_Data,Expected_Result,Automation_Status,Automation_Ref
+DEMO-AUTH-UI-001,Authentication,Login,Happy Path,P1,Đăng nhập thành công với tài khoản đúng,Môi trường Test sẵn sàng,"1. Truy cập /login
+2. Nhập username và password
+3. Bấm Đăng nhập","username: ""admin_test""
+password: ""SecretPass123""","1. Chuyển hướng Dashboard
+2. Lưu token phiên",Automated,tests/ui/auth.spec.ts:10
+DEMO-AUTH-UI-002,Authentication,Login,Negative,P2,Báo lỗi khi nhập sai mật khẩu,Môi trường Test sẵn sàng,"1. Truy cập /login
+2. Nhập sai password
+3. Bấm Đăng nhập","username: ""admin_test""
+password: ""WrongPassword""","Hiển thị thông báo: Sai tài khoản hoặc mật khẩu",Automated,tests/ui/auth.spec.ts:25
+DEMO-SRCH-UI-001,Search,Smart Search,Happy Path,P1,Tìm kiếm với từ khóa hợp lệ,Đã đăng nhập thành công,"1. Truy cập màn hình Search
+2. Nhập từ khóa
+3. Bấm Tìm kiếm","keyword: ""Xe tải màu xanh""","1. Hiển thị danh sách kết quả
+2. Đúng số lượng khớp",Automated,tests/ui/search.spec.ts:15
+DEMO-SRCH-UI-002,Search,Smart Search,Edge Case,P3,Xử lý từ khóa quá dài (>500 ký tự),Đã đăng nhập thành công,"1. Nhập chuỗi 600 ký tự
+2. Bấm Tìm kiếm","string(600 chars)","Hệ thống không crash, xử lý mượt mà hoặc cảnh báo",Automated,tests/ui/search.spec.ts:40

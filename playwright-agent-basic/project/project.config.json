@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "id": "vms",
+  "name": "BecaVMS",
+  "environment": "test",
+  "web": {
+    "baseUrlEnv": "VMS_BASE_URL",
+    "allowedHosts": [
+      "180.148.1.242"
+    ],
+    "browserProject": "chromium"
+  },
+  "database": {
+    "enabled": false,
+    "provider": "postgresql",
+    "connectionEnv": "DATABASE_URL",
+    "allowedHosts": [],
+    "accessMode": "disabled",
+    "allowedOperations": [],
+    "allowedSchemas": [],
+    "allowedTables": []
+  },
+  "dataPolicy": {
+    "mutation": "read-only",
+    "cleanupRequired": true
+  },
+  "execution": {
+    "headed": true,
+    "workers": 1,
+    "stableRuns": 2,
+    "maxAutoFixAttempts": 5
+  },
+  "jevAi": {
+    "enabled": true,
+    "model": "jev-latest",
+    "smartOracle": true,
+    "failureRca": true
+  }
+}

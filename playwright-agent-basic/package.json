@@ -1,0 +1,32 @@
+{
+  "name": "playwright-agent-basic",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "project:test": "node scripts/project-test.mjs",
+    "project:test:stable": "node scripts/project-test.mjs --stable",
+    "test:pw": "playwright test",
+    "test:list": "playwright test --list",
+    "test:oc": "playwright test tests/ui/vms/vms-object-counting.spec.ts",
+    "test:ss": "playwright test tests/ui/vms/vms-smart-search.spec.ts",
+    "test:ui": "playwright test tests/ui",
+    "test:api": "playwright test tests/api",
+    "test:jev": "playwright test tests/api/jev",
+    "test:debug": "playwright test --project=chromium --headed --workers=1",
+    "test:stable": "playwright test --project=chromium --headed --workers=1 --repeat-each=2",
+    "lint": "tsc --noEmit",
+    "ponytail:debt": "node scripts/ponytail-debt.mjs",
+    "report:excel": "python scripts/export_excel_report.py",
+    "report:html": "playwright show-report artifacts/html-report",
+    "verify": "npm run lint && npm run ponytail:debt && npm run test:list"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^22.14.0",
+    "typescript": "~5.8.2"
+  }
+}

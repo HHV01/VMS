@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build and test outputs
+build/
+dist/
+coverage/
+playwright-report/
+test-results/
+artifacts/
+**/playwright-report/
+**/test-results/
+**/artifacts/
+reports/*
+!reports/.gitkeep
+
+# Environment & logs
+.env*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Agent skills
+.agents/
+.claude/
+skills-lock.json
