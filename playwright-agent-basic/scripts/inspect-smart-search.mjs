@@ -30,8 +30,13 @@ async function run() {
     } catch {}
   });
 
+  import('dotenv').then(d => d.config({ path: 'project/.env' }));
+  const baseUrl = process.env.VMS_BASE_URL || 'http://localhost:3000';
+  const username = process.env.VMS_USERNAME || '';
+  const password = process.env.VMS_PASSWORD || '';
+
   console.log('1. Navigating to login page...');
-  await page.goto('http://180.148.1.242:8004/login', { waitUntil: 'domcontentloaded' });
+  await page.goto(`${baseUrl}/login`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1000);
 
   console.log('2. Logging in...');
@@ -39,8 +44,8 @@ async function run() {
   const passwordInput = page.getByRole('textbox', { name: /mật khẩu|password/i }).or(page.locator('input[type="password"]').first());
   const submitBtn = page.locator('button[type="submit"], button:has-text("Đăng nhập")').first();
 
-  await usernameInput.fill('becamex');
-  await passwordInput.fill('becamex@123');
+  await usernameInput.fill(username);
+  await passwordInput.fill(password);
   await submitBtn.click();
   await page.waitForURL((url) => !url.toString().includes('login'), { timeout: 15000 });
   console.log('✓ Login successful! Current URL:', page.url());

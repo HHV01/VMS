@@ -30,10 +30,16 @@ async function run() {
     } catch {}
   });
 
+  import('dotenv').then(d => d.config({ path: 'project/.env' }));
+  const baseUrl = process.env.VMS_BASE_URL || 'http://localhost:3000';
+  const username = process.env.VMS_USERNAME || '';
+  const password = process.env.VMS_PASSWORD || '';
+
   console.log('1. Login...');
-  await page.goto('http://180.148.1.242:8004/login', { waitUntil: 'domcontentloaded' });
-  await page.locator('input[name="username"], input[type="text"]').first().fill('becamex');
-  await page.locator('input[name="password"], input[type="password"]').first().fill('becamex@123');
+  await page.goto(`${baseUrl}/login`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1000);
+  await page.locator('input[name="username"], input[type="text"]').first().fill(username);
+  await page.locator('input[name="password"], input[type="password"]').first().fill(password);
   await page.locator('button[type="submit"], button:has-text("Đăng nhập")').first().click();
   await page.waitForURL((url) => !url.toString().includes('login'), { timeout: 15000 });
 
