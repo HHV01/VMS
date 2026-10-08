@@ -21,8 +21,7 @@ export default defineConfig({
   timeout: DEFAULT_TIMEOUT,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 4 : undefined,
+  workers: process.env.CI ? 4 : (process.env.WORKERS ? Number(process.env.WORKERS) : 2),
   outputDir: ARTIFACT_DIR,
   reporter: [
     ['json', { outputFile: `${ARTIFACT_DIR}/playwright-results.json` }],

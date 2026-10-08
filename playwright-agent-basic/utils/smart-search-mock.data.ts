@@ -1,151 +1,162 @@
-import { MockSearchResponse, MockSearchResultItem } from './smart-search-api.map';
-
 /**
  * Data builder phục vụ các test case @mock
- * Tạo các dataset nhỏ, có chủ đích rõ ràng:
- * - 3 results với relevance 100%, 67%, 33% để test Slider & Sort
- * - 17 results để test Pagination (8/trang)
- * - Empty results để test Empty State
- * - Error responses (400, 401, 403, 404, 422, 500, 502/503)
+ * Tạo các dataset theo ĐÚNG CONTRACT THỰC TẾ của Backend API: /api/smart_search
+ * { message: {...}, data: { query: '...', total: N, items: [...] } }
  */
 export class SmartSearchMockBuilder {
   /**
    * Bộ dữ liệu 3 kết quả với các mức relevance chuẩn xác: 100% (3/3), 67% (2/3), 33% (1/3)
    * Phục vụ test: Slider filter min-max, Sort relevance descending, Tag verification
    */
-  static build3TierRelevanceDataset(): MockSearchResponse {
-    const items: MockSearchResultItem[] = [
-      {
-        id: 'item-001',
-        thumbnailUrl: '/assets/mock/person_red_backpack_1.jpg',
-        relevanceScore: 100, // 3/3 tiêu chí: Người + Áo đỏ + Balo
-        cameraName: 'CAM_GATE_01',
-        cameraId: 'cam-001',
-        locationName: 'Cổng chính - Khu A',
-        areaId: 'area-01',
-        timestamp: '07/10/2026 10:15:30',
-        matchedTags: ['Người', 'Áo đỏ', 'Balo'],
-        totalCriteriaCount: 3,
-        matchedCriteriaCount: 3,
-        playbackUrl: '/playback?id=item-001&t=101530',
-      },
-      {
-        id: 'item-002',
-        thumbnailUrl: '/assets/mock/person_red_2.jpg',
-        relevanceScore: 67, // 2/3 tiêu chí: Người + Áo đỏ
-        cameraName: 'CAM_GATE_01',
-        cameraId: 'cam-001',
-        locationName: 'Cổng chính - Khu A',
-        areaId: 'area-01',
-        timestamp: '07/10/2026 09:30:15',
-        matchedTags: ['Người', 'Áo đỏ'],
-        totalCriteriaCount: 3,
-        matchedCriteriaCount: 2,
-        playbackUrl: '/playback?id=item-002&t=093015',
-      },
-      {
-        id: 'item-003',
-        thumbnailUrl: '/assets/mock/person_blue_backpack_3.jpg',
-        relevanceScore: 33, // 1/3 tiêu chí: Người (hoặc Balo)
-        cameraName: 'CAM_GATE_01',
-        cameraId: 'cam-001',
-        locationName: 'Cổng chính - Khu A',
-        areaId: 'area-01',
-        timestamp: '07/10/2026 08:05:00',
-        matchedTags: ['Người'],
-        totalCriteriaCount: 3,
-        matchedCriteriaCount: 1,
-        playbackUrl: '/playback?id=item-003&t=080500',
-      },
-    ];
-
+  static build3TierRelevanceDataset(query = 'Người áo đỏ mang balo') {
     return {
-      statusCode: 200,
-      totalResults: 3,
-      totalCameras: 1,
-      totalAreas: 1,
-      page: 1,
-      pageSize: 10,
-      data: items,
+      message: { en: 'Data retrieved successfully', vi: 'Lấy dữ liệu thành công' },
+      data: {
+        query,
+        start_time: '2026-09-30T17:00:00Z',
+        end_time: '2026-10-07T16:59:59.999000Z',
+        total: 3,
+        items: [
+          {
+            segment_id: 'mock-rel-100',
+            camera_id: 'LH-LTT-HV_CAM-01',
+            camera_name: 'LH-LTT-HV_CAM-01',
+            start_time: '2026-10-07T09:34:39.044312Z',
+            end_time: '2026-10-07T09:34:53.563034Z',
+            score: 1,
+            relevance_score: 100,
+            display_score: 100,
+            display_score_type: 'relevance',
+            matched_filter_count: 3,
+            total_filter_count: 3,
+            summary: 'Người mặc áo đỏ mang balo di chuyển qua cổng chính.',
+            thumb_url: '/security-events/2026-10-07/event_retrieval/da3bc738-f37b-41a4-8f52-dbea643e2889-4.jpg',
+            playback_url: '/recording/LH-LTT-HV_CAM-01/start/1791365679/end/1791365694/index.m3u8',
+            objects: [
+              { class: 'person', color: 'red', accessories: 'backpack' }
+            ]
+          },
+          {
+            segment_id: 'mock-rel-067',
+            camera_id: 'LH-LTT-DK_CAM-04',
+            camera_name: 'LH-LTT-DK_CAM-04',
+            start_time: '2026-10-07T09:34:23.974949Z',
+            end_time: '2026-10-07T09:34:39.853660Z',
+            score: 0.67,
+            relevance_score: 67,
+            display_score: 67,
+            display_score_type: 'relevance',
+            matched_filter_count: 2,
+            total_filter_count: 3,
+            summary: 'Người mặc áo đỏ di chuyển.',
+            thumb_url: '/security-events/2026-10-07/event_retrieval/e8c66573-cf45-41a2-a529-478c6213b703-4.jpg',
+            playback_url: '/recording/LH-LTT-DK_CAM-04/start/1791365663/end/1791365680/index.m3u8',
+            objects: [
+              { class: 'person', color: 'red' }
+            ]
+          },
+          {
+            segment_id: 'mock-rel-033',
+            camera_id: 'AIOT1',
+            camera_name: 'AIOT1',
+            start_time: '2026-10-07T09:30:00.000000Z',
+            end_time: '2026-10-07T09:30:15.000000Z',
+            score: 0.33,
+            relevance_score: 33,
+            display_score: 33,
+            display_score_type: 'relevance',
+            matched_filter_count: 1,
+            total_filter_count: 3,
+            summary: 'Người đi bộ qua khu vực.',
+            thumb_url: '/security-events/2026-10-07/event_retrieval/6bea9c87-5275-4f6b-8168-77f94eba673a-4.jpg',
+            playback_url: '/recording/AIOT1/start/1791365400/end/1791365415/index.m3u8',
+            objects: [
+              { class: 'person' }
+            ]
+          }
+        ]
+      }
     };
   }
 
   /**
-   * Bộ dữ liệu 17 kết quả phân trang (8 item / trang)
+   * Bộ dữ liệu 17 kết quả phân trang (8 item / trang cho List view)
    */
-  static buildPaginationDataset(page = 1, pageSize = 8): MockSearchResponse {
-    const total = 17;
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = Math.min(startIndex + pageSize, total);
-
-    const data: MockSearchResultItem[] = [];
-    for (let i = startIndex; i < endIndex; i++) {
-      data.push({
-        id: `page-item-${i + 1}`,
-        thumbnailUrl: `/assets/mock/thumb_${i + 1}.jpg`,
-        relevanceScore: Math.max(20, 100 - i * 4),
-        cameraName: `CAM_ZONE_${(i % 3) + 1}`,
-        cameraId: `cam-00${(i % 3) + 1}`,
-        locationName: `Khu vực ${(i % 3) + 1}`,
-        areaId: `area-00${(i % 3) + 1}`,
-        timestamp: `07/10/2026 14:${String(i).padStart(2, '0')}:00`,
-        matchedTags: ['Phương tiện', 'Xe máy'],
-        totalCriteriaCount: 2,
-        matchedCriteriaCount: 2,
+  static buildPaginationDataset(total = 17) {
+    const items = [];
+    for (let i = 0; i < total; i++) {
+      items.push({
+        segment_id: `mock-page-item-${i + 1}`,
+        camera_id: `CAM-ZONE-${(i % 3) + 1}`,
+        camera_name: `CAM_ZONE_${(i % 3) + 1}`,
+        start_time: `2026-10-07T10:${String(i).padStart(2, '0')}:00.000000Z`,
+        end_time: `2026-10-07T10:${String(i).padStart(2, '0')}:15.000000Z`,
+        score: Math.max(0.2, (100 - i * 4) / 100),
+        relevance_score: Math.max(20, 100 - i * 4),
+        display_score: Math.max(20, 100 - i * 4),
+        display_score_type: 'relevance',
+        summary: `Phương tiện di chuyển số ${i + 1}`,
+        thumb_url: '/security-events/2026-10-07/event_retrieval/da3bc738-f37b-41a4-8f52-dbea643e2889-4.jpg',
+        playback_url: '/recording/CAM/index.m3u8',
+        objects: [{ class: 'vehicle', vehicle_type: 'motorbike' }]
       });
     }
 
     return {
-      statusCode: 200,
-      totalResults: total,
-      totalCameras: 3,
-      totalAreas: 3,
-      page,
-      pageSize,
-      data,
+      message: { en: 'Data retrieved successfully', vi: 'Lấy dữ liệu thành công' },
+      data: {
+        query: 'phương tiện',
+        start_time: '2026-09-30T17:00:00Z',
+        end_time: '2026-10-07T16:59:59.999000Z',
+        total,
+        items
+      }
     };
   }
 
   /**
    * Response rỗng: 200 OK nhưng 0 kết quả
    */
-  static buildEmptyResponse(): MockSearchResponse {
+  static buildEmptyResponse() {
     return {
-      statusCode: 200,
-      totalResults: 0,
-      totalCameras: 0,
-      totalAreas: 0,
-      page: 1,
-      pageSize: 10,
-      data: [],
+      message: { en: 'No data', vi: 'Không có dữ liệu' },
+      data: {
+        query: 'không_tồn_tại',
+        start_time: '2026-09-30T17:00:00Z',
+        end_time: '2026-10-07T16:59:59.999000Z',
+        total: 0,
+        items: []
+      }
     };
   }
 
   /**
-   * Response cảnh báo điều kiện chưa hỗ trợ (BR-NL-01..03)
+   * Response cảnh báo điều kiện chưa hỗ trợ (BR-NL-02)
    */
-  static buildUnsupportedConditionsResponse(): MockSearchResponse {
+  static buildUnsupportedConditionsResponse() {
     return {
-      statusCode: 200,
-      totalResults: 2,
-      totalCameras: 1,
-      totalAreas: 1,
-      page: 1,
-      pageSize: 10,
-      data: [
-        {
-          id: 'item-sup-01',
-          thumbnailUrl: '/assets/mock/thumb_sup.jpg',
-          relevanceScore: 100,
-          cameraName: 'CAM_01',
-          cameraId: 'cam-01',
-          locationName: 'Sảnh chính',
-          areaId: 'area-01',
-          timestamp: '07/10/2026 11:00:00',
-          matchedTags: ['Người', 'Áo đen'],
-        },
-      ],
-      unsupportedConditions: ['chạy nhảy với tốc độ cao'],
+      message: { en: 'Partially supported query', vi: 'Một số điều kiện chưa được hỗ trợ' },
+      data: {
+        query: 'chạy nhảy tốc độ cao',
+        start_time: '2026-09-30T17:00:00Z',
+        end_time: '2026-10-07T16:59:59.999000Z',
+        total: 1,
+        unsupported_conditions: ['nhảy múa tốc độ cao'],
+        items: [
+          {
+            segment_id: 'mock-sup-1',
+            camera_id: 'AIOT1',
+            camera_name: 'AIOT1',
+            start_time: '2026-10-07T11:00:00Z',
+            end_time: '2026-10-07T11:01:00Z',
+            score: 1,
+            relevance_score: 100,
+            summary: 'Người đi bộ.',
+            thumb_url: '/security-events/2026-10-07/event_retrieval/da3bc738-f37b-41a4-8f52-dbea643e2889-4.jpg',
+            objects: [{ class: 'person' }]
+          }
+        ]
+      }
     };
   }
 }

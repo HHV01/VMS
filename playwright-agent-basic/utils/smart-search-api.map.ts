@@ -4,40 +4,109 @@ import * as path from 'path';
 
 /**
  * SMART SEARCH API ADAPTER (MAP & DATA CONTRACTS)
- * TẤT CẢ ENDPOINT VÀ FIELD DƯỚI ĐÂY LÀ PHỎNG ĐOÁN HỢP LÝ THEO PSD/BA VÀ ĐƯỢC ĐÁNH DẤU "UNVERIFIED".
- * Sau khi có HAR/API thật, chỉ cần cập nhật lại file này.
+ * ĐÃ XÁC MINH TRỰC TIẾP TRÊN MÔI TRƯỜNG LIVE (Port 8004 UI -> Port 8001 Backend API).
+ * 
+ * MẪU REQUEST THỰC TẾ (Đã gỡ token & thông tin nhạy cảm):
+ * -------------------------------------------------------------
+ * POST http://180.148.1.242:8001/api/smart_search
+ * Headers: {
+ *   "Authorization": "Bearer [REDACTED_JWT_TOKEN]",
+ *   "Content-Type": "application/json",
+ *   "Accept": "application/json, text/plain, *\/*"
+ * }
+ * Body: {
+ *   "query": "người",
+ *   "start_time": "2026-09-30T17:00:00.000Z",
+ *   "end_time": "2026-10-07T16:59:59.999Z",
+ *   "time_of_day_start": null,
+ *   "time_of_day_end": null,
+ *   "limit": 200
+ * }
+ * 
+ * MẪU RESPONSE THỰC TẾ (Trích đoạn items tiêu biểu):
+ * -------------------------------------------------------------
+ * Status: 200 OK
+ * Body: {
+ *   "message": { "vi": "Tìm kiếm thành công", "en": "Search successful" },
+ *   "data": {
+ *     "query": "người",
+ *     "total": 31,
+ *     "limit": 200,
+ *     "offset": 0,
+ *     "has_more": false,
+ *     "items": [
+ *       {
+ *         "segment_id": "a8c0c9c0-62bb-4ce4-9238-4f5a08b5728a",
+ *         "camera_id": "LH-HV-LL_CAM-04",
+ *         "camera_name": "LH-HV-LL_CAM-04",
+ *         "start_time": "2026-10-07T09:01:09.822791Z",
+ *         "end_time": "2026-10-07T09:01:26.478672Z",
+ *         "score": 1,
+ *         "relevance_score": null,
+ *         "matched_filter_count": null,
+ *         "total_filter_count": null,
+ *         "display_score": null,
+ *         "summary": "Bối cảnh là một khu vực giao thông đông đúc vào buổi sáng sớm...",
+ *         "thumb_url": "/security-events/2026-10-07/event_retrieval/a8c0c9c0-62bb-4ce4-9238-4f5a08b5728a-4.jpg",
+ *         "objects": [
+ *           { "class": "vehicle", "color": "tan", "confidence": 0.942, "vehicle_type": "truck" },
+ *           { "class": "person", "confidence": 0.759 }
+ *         ],
+ *         "playback_url": "/recording/LH-HV-LL_CAM-04/start/1791363669/end/1791363686/index.m3u8"
+ *       }
+ *     ],
+ *     "interpretation": {
+ *       "search_basis": "metadata",
+ *       "parser": "gemini",
+ *       "yoloe_classes": ["person"],
+ *       "unsupported_filters": []
+ *     }
+ *   },
+ *   "status_code": 200
+ * }
  */
 export const SMART_SEARCH_API_MAP = {
-  // Confirmed Live Backend Base: http://180.148.1.242:8001
-  AUTH_LOGIN: /.*\/api\/auth\/login.*/i,
-  VALIDATE_TOKEN: /.*\/api\/auth\/validate_token.*/i,
-  CAMERAS_ENDPOINT_PATTERN: /.*\/api\/cameras.*/i,
+  // CONFIRMED LIVE ENDPOINTS (Verified on port 8001)
+  AUTH_LOGIN: /.*:8001\/api\/auth\/login.*/i,
+  VALIDATE_TOKEN: /.*:8001\/api\/auth\/validate_token.*/i,
+  CAMERAS_ENDPOINT_PATTERN: /.*:8001\/api\/cameras.*/i,
   
-  // Smart Search search endpoint pattern on port 8001
-  SEARCH_ENDPOINT_PATTERN: /.*:8001\/api\/.*(?:smart-search|events|retrieval|search).*/i,
+  // Confirmed Live Search endpoint on port 8001
+  SEARCH_ENDPOINT_PATTERN: /.*:8001\/api\/smart_search.*/i,
   SEARCH_PARSE_NL_PATTERN: /.*:8001\/api\/.*(?:parse-nl|nlp|prompt).*/i,
 
-  // UI Query Parameters
+  // UI Query Parameters (Confirmed in UI URL)
   URL_QUERY_PARAMS: {
     SEARCH_MODE: 'search_mode', // 'precision' | 'flexible'
     TIME_PRESET: 'time_preset', // '7d' | '24h' | 'today' | 'yesterday'
   },
 
-  // UNVERIFIED: Schema field names
-  FIELDS: {
-    QUERY_TEXT: 'query_text',
-    PAGE: 'page',
-    PAGE_SIZE: 'page_size',
-    SORT_BY: 'sort_by', // 'relevance' | 'newest' | 'oldest'
-    SORT_ORDER: 'sort_order', // 'desc' | 'asc'
-    TIME_FROM: 'from_time',
-    TIME_TO: 'to_time',
-    CAMERA_IDS: 'camera_ids',
-    AREA_IDS: 'area_ids',
-    MIN_RELEVANCE: 'min_relevance',
-    MAX_RELEVANCE: 'max_relevance',
-    OBJECT_TYPES: 'object_types',
-    ATTRIBUTES: 'attributes',
+  // CONFIRMED LIVE REQUEST SCHEMA FIELDS
+  REQUEST_FIELDS: {
+    QUERY: 'query',
+    START_TIME: 'start_time',
+    END_TIME: 'end_time',
+    TIME_OF_DAY_START: 'time_of_day_start',
+    TIME_OF_DAY_END: 'time_of_day_end',
+    LIMIT: 'limit',
+  },
+
+  // CONFIRMED LIVE ITEM SCHEMA FIELDS
+  ITEM_FIELDS: {
+    SEGMENT_ID: 'segment_id',
+    CAMERA_ID: 'camera_id',
+    CAMERA_NAME: 'camera_name',
+    START_TIME: 'start_time',
+    END_TIME: 'end_time',
+    SCORE: 'score',
+    RELEVANCE_SCORE: 'relevance_score',
+    MATCHED_FILTER_COUNT: 'matched_filter_count',
+    TOTAL_FILTER_COUNT: 'total_filter_count',
+    DISPLAY_SCORE: 'display_score',
+    SUMMARY: 'summary',
+    THUMB_URL: 'thumb_url',
+    PLAYBACK_URL: 'playback_url',
+    OBJECTS: 'objects',
   },
 };
 
