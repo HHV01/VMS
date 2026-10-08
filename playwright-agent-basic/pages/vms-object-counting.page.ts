@@ -1,191 +1,220 @@
 import { Page, Locator } from '@playwright/test';
 import { requireEnv } from '../utils/env';
 
-/**
- * VMS Object Counting - trang "Đếm đối tượng".
- * Module phân tích camera: xem kết quả đếm đối tượng theo quy tắc Crossline / Area / Lane.
- */
 const baseUrl = () => requireEnv('VMS_BASE_URL').replace(/\/+$/, '');
 
+/**
+ * VMS Object Counting - Page Object Model cho module "Đếm đối tượng".
+ * Bám sát 3 wireframe PSD (Crossline, Area Occupancy, Lane Counting) & giao diện VMS live thực tế.
+ */
 export class VmsObjectCountingPage {
   readonly page: Page;
 
-  // ===== ĐIỀU HƯỚNG / HEADER =====
-  // ponytail: locator theo text tiếng Việt. ceiling: vỡ khi UI đổi ngôn ngữ. upgrade: khi FE thêm data-testid
+  // ===== HEADER & BREADCRUMB =====
   readonly pageHeading: Locator;
 
-  // ===== BỘ LỌC / FILTER =====
-  readonly cameraSelector: Locator;
-  readonly dateFromPicker: Locator;
-  readonly dateToPicker: Locator;
-  readonly ruleTypeSelector: Locator;
-  readonly searchButton: Locator;
-  readonly exportButton: Locator;
+  // ===== LOẠI ĐẾM (3 NÚT CHẾ ĐỘ) =====
+  readonly modeCrosslineBtn: Locator;
+  readonly modeAreaBtn: Locator;
+  readonly modeLaneBtn: Locator;
 
-  // ===== BẢNG KẾT QUẢ =====
-  readonly dataTable: Locator;
-  readonly tableRow: Locator;
-  readonly tableEmptyState: Locator;
+  // ===== BỘ CHỌN THANH CÔNG CỤ =====
+  readonly cameraDropdown: Locator;
+  readonly ruleDropdown: Locator;
+  readonly objectDropdown: Locator;
 
-  // ===== BIỂU ĐỒ =====
-  readonly chartContainer: Locator;
+  // ===== BỘ LỌC THỜI GIAN =====
+  readonly timeFilterTodayBtn: Locator;
+  readonly timeFilter1HourBtn: Locator; // Wireframe ghi "1 giờ gần nhất", Live ghi "Giờ hiện tại"
+  readonly timeFilterCurrentHourBtn: Locator;
 
-  // ===== LOADING =====
-  readonly loadingIndicator: Locator;
+  // ===== LIVE VIDEO & OVERLAY =====
+  readonly videoPlayer: Locator;
+  readonly liveOverlayContainer: Locator;
+  readonly ruleOverlayLabel: Locator;
+  readonly cameraTag: Locator;
+
+  // ===== CROSSLINE (ĐƯỜNG CẮT) =====
+  readonly crosslineKpiTotal: Locator;
+  readonly crosslineKpiIn: Locator;
+  readonly crosslineKpiOut: Locator;
+  readonly crosslineDirectionTable: Locator;
+  readonly crosslineTrendChart: Locator;
+  readonly crosslinePieChart: Locator;
+  readonly trendLineToggleBtn: Locator;
+  readonly trendBarToggleBtn: Locator;
+
+  // ===== AREA OCCUPANCY (VÙNG) =====
+  readonly areaKpiCurrent: Locator;
+  readonly areaKpiCapacity: Locator;
+  readonly areaKpiAvg: Locator;
+  readonly areaKpiMax: Locator;
+  readonly areaKpiMin: Locator;
+  readonly areaDistributionTable: Locator;
+  readonly areaSafetyChart: Locator;
+
+  // ===== LANE COUNTING (LÀN ĐƯỜNG) =====
+  readonly laneKpiTotal: Locator;
+  readonly laneKpiHighest: Locator;
+  readonly laneFlowBarChart: Locator;
+  readonly laneFlowTrendChart: Locator;
+  readonly laneObjectTable: Locator;
+  readonly laneExportExcelBtn: Locator;
 
   constructor(page: Page) {
     this.page = page;
 
-    this.pageHeading = page
-      .getByRole('heading', { name: /Đếm đối tượng/i })
-      .or(page.getByText('Đếm đối tượng').first());
+    // Header
+    this.pageHeading = page.getByRole('heading', { name: /Đếm đối tượng/i }).or(page.getByText('Đếm đối tượng').first());
 
-    // ponytail: locator camera dùng combobox/select chung. ceiling: vỡ nếu UI dùng custom dropdown không có role. upgrade: khi FE thêm data-testid="camera-select"
-    this.cameraSelector = page
-      .getByRole('combobox', { name: /camera/i })
-      .or(page.locator('[data-testid="camera-select"], select[name*="camera"]').first());
+    // 3 nút loại đếm
+    this.modeCrosslineBtn = page.locator('button:has-text("Đường cắt")').first();
+    this.modeAreaBtn = page.locator('button:has-text("Vùng")').first();
+    this.modeLaneBtn = page.locator('button:has-text("Làn đường")').first();
 
-    this.dateFromPicker = page
-      .getByRole('textbox', { name: /từ ngày|from|bắt đầu/i })
-      .or(page.locator('input[type="date"]').first());
+    // Thanh công cụ bộ chọn (dựa theo container chứa label)
+    this.cameraDropdown = page.locator('div:has(> label:has-text("Mã camera")) button').first();
+    this.ruleDropdown = page.locator('div:has(> label:has-text("Quy tắc")) button').first();
+    this.objectDropdown = page.locator('div:has(> label:has-text("Đối tượng"))').first();
 
-    this.dateToPicker = page
-      .getByRole('textbox', { name: /đến ngày|to|kết thúc/i })
-      .or(page.locator('input[type="date"]').nth(1));
+    // Thời gian
+    this.timeFilterTodayBtn = page.locator('button:has-text("Hôm nay")').first();
+    this.timeFilterCurrentHourBtn = page.locator('button:has-text("Giờ hiện tại")').first();
+    this.timeFilter1HourBtn = page.locator('button:has-text("1 giờ gần nhất"), button:has-text("1 giờ"), button:has-text("Giờ hiện tại")').first();
 
-    this.ruleTypeSelector = page
-      .getByRole('combobox', { name: /loại quy tắc|rule|crossline|area/i })
-      .or(page.locator('[data-testid="rule-type-select"]').first());
+    // Video & Overlay
+    this.videoPlayer = page.locator('video, [class*="player"]').first();
+    this.liveOverlayContainer = page.locator('.camera-player, [class*="player"], video').first();
+    this.ruleOverlayLabel = page.locator('text=/default_name|Line 1|VÀO|RA/i').first();
+    this.cameraTag = page.locator('text=/Online|AI.*Running|Reconnecting|BB-|LH-|AIOT/i').first();
 
-    this.searchButton = page
-      .getByRole('button', { name: /tìm kiếm|lọc|search|filter|xem/i })
-      .first();
+    // Crossline
+    this.crosslineKpiTotal = page.locator('[class*="kpi"], [class*="card"]').filter({ hasText: 'Tổng lượt' }).first();
+    this.crosslineKpiIn = page.locator('[class*="kpi"], [class*="card"]').filter({ hasText: 'Lượt vào' }).first();
+    this.crosslineKpiOut = page.locator('[class*="kpi"], [class*="card"]').filter({ hasText: 'Lượt ra' }).first();
+    this.crosslineDirectionTable = page.locator('[class*="card"], [class*="table"]').filter({ hasText: 'Thống kê đối tượng theo hướng' }).first();
+    this.crosslineTrendChart = page.locator('[class*="card"], [class*="chart"]').filter({ hasText: 'Xu hướng theo thời gian' }).first();
+    this.crosslinePieChart = page.locator('[class*="card"], [class*="chart"]').filter({ hasText: 'Phân bổ theo đối tượng' }).first();
+    this.trendLineToggleBtn = page.locator('button:has-text("Đường")').first();
+    this.trendBarToggleBtn = page.locator('button:has-text("Cột")').first();
 
-    this.exportButton = page.getByRole('button', { name: /xuất|export/i }).first();
+    // Area
+    this.areaKpiCurrent = page.locator('[class*="kpi"], [class*="card"]').filter({ hasText: 'Hiện diện hiện tại' }).first();
+    this.areaKpiCapacity = page.locator('[class*="kpi"], [class*="card"]').filter({ hasText: 'Sức chứa & tỉ lệ' }).first();
+    this.areaKpiAvg = page.locator('[class*="kpi"], [class*="card"]').filter({ hasText: 'Hiện diện trung bình' }).first();
+    this.areaKpiMax = page.locator('[class*="kpi"], [class*="card"]').filter({ hasText: 'Hiện diện cao nhất' }).first();
+    this.areaKpiMin = page.locator('[class*="kpi"], [class*="card"]').filter({ hasText: 'Hiện diện thấp nhất' }).first();
+    this.areaDistributionTable = page.locator('[class*="card"]').filter({ hasText: 'Phân bổ đối tượng' }).first();
+    this.areaSafetyChart = page.locator('[class*="card"]').filter({ hasText: 'Biểu đồ mật độ hiện diện' }).first();
 
-    // ponytail: locator bảng bắt cả table, grid, list vì VMS có thể dùng nhiều layout. ceiling: không verify cột/hàng cụ thể. upgrade: khi FE thêm data-testid cho container bảng
-    this.dataTable = page
-      .getByRole('table')
-      .or(page.locator('[class*="table"],[class*="grid"],[class*="list"],[data-testid*="table"],[data-testid*="grid"],[role="grid"]').first());
-
-    this.tableRow = page.getByRole('row').filter({ hasNot: page.getByRole('columnheader') });
-
-    this.tableEmptyState = page
-      .getByText(/không có dữ liệu|no data|không tìm thấy|chưa có dữ liệu|empty/i)
-      .first();
-
-    this.chartContainer = page
-      .locator('[class*="chart"], canvas, svg[class*="chart"]')
-      .first();
-
-    this.loadingIndicator = page.locator(
-      '[class*="loading"], [class*="spinner"], [role="progressbar"]',
-    );
+    // Lane
+    this.laneKpiTotal = page.locator('[class*="kpi"], [class*="card"]').filter({ hasText: 'Tổng lượt' }).first();
+    this.laneKpiHighest = page.locator('[class*="kpi"], [class*="card"]').filter({ hasText: 'Làn cao nhất' }).first();
+    this.laneFlowBarChart = page.locator('[class*="card"]').filter({ hasText: 'Lưu lượng theo làn' }).first();
+    this.laneFlowTrendChart = page.locator('[class*="card"]').filter({ hasText: 'Xu hướng lưu lượng theo làn' }).first();
+    this.laneObjectTable = page.locator('[class*="card"]').filter({ hasText: 'Lưu lượng theo làn và đối tượng' }).first();
+    this.laneExportExcelBtn = page.locator('button:has-text("Xuất Excel"), button:has-text("Xuất dữ liệu")').first();
   }
 
   // ===== ĐIỀU HƯỚNG =====
-  async navigate() {
-    await this.page.goto(`${baseUrl()}/video-analytic/object-counting`, {
-      waitUntil: 'domcontentloaded',
-    });
+  async navigate(url?: string) {
+    const target = url || `${baseUrl()}/video-analytic/object-counting`;
+    await this.page.goto(target, { waitUntil: 'domcontentloaded' });
   }
 
-  async waitForPageLoad(timeout = 20000) {
-    await this.pageHeading.first().waitFor({ state: 'visible', timeout });
+  async waitForPageLoad(timeout = 15000) {
+    await this.pageHeading.waitFor({ state: 'visible', timeout });
   }
 
-  async login(username: string, password: string) {
-    await this.page.goto(`${baseUrl()}/login`, { waitUntil: 'domcontentloaded' });
-    await this.page.getByRole('textbox', { name: 'Tên đăng nhập' }).fill(username);
-    await this.page.getByRole('textbox', { name: 'Mật khẩu' }).fill(password);
-    await this.page.locator('button[type="submit"]').click();
-    await this.page.waitForURL((url) => !url.toString().includes('login'), { timeout: 10000 });
-  }
-
-  // ===== TRẠNG THÁI =====
-  async isPageLoaded(): Promise<boolean> {
-    try {
-      await this.pageHeading.first().waitFor({ state: 'visible', timeout: 10000 });
-      return true;
-    } catch {
-      return false;
+  // ===== CHỌN CHẾ ĐỘ ĐẾM =====
+  async selectMode(mode: 'crossline' | 'area' | 'lane') {
+    if (mode === 'crossline') {
+      await this.modeCrosslineBtn.click();
+    } else if (mode === 'area') {
+      await this.modeAreaBtn.click();
+    } else if (mode === 'lane') {
+      await this.modeLaneBtn.click();
     }
   }
 
-  async getPageTitle(): Promise<string> {
-    return await this.page.title();
+  // ===== ĐỌC SỐ LIỆU KPI CROSSLINE =====
+  async getCrosslineKpiNumbers(): Promise<{ total: number; in: number; out: number }> {
+    const totalText = await this.crosslineKpiTotal.innerText();
+    const inText = await this.crosslineKpiIn.innerText();
+    const outText = await this.crosslineKpiOut.innerText();
+
+    const parseNum = (str: string) => {
+      const match = str.replace(/,/g, '').match(/\d+/);
+      return match ? parseInt(match[0], 10) : 0;
+    };
+
+    return {
+      total: parseNum(totalText),
+      in: parseNum(inText),
+      out: parseNum(outText),
+    };
   }
 
-  async getPageUrl(): Promise<string> {
-    return this.page.url();
+  // ===== ĐỌC SỐ LIỆU KPI AREA =====
+  async getAreaKpiNumbers(): Promise<{ current: number; capacity: string; avg: number; max: number; min: number }> {
+    const curText = await this.areaKpiCurrent.innerText().catch(() => '0');
+    const capText = await this.areaKpiCapacity.innerText().catch(() => '');
+    const avgText = await this.areaKpiAvg.innerText().catch(() => '0');
+    const maxText = await this.areaKpiMax.innerText().catch(() => '0');
+    const minText = await this.areaKpiMin.innerText().catch(() => '0');
+
+    const parseNum = (str: string) => {
+      const match = str.replace(/,/g, '').match(/[\d.]+/);
+      return match ? parseFloat(match[0]) : 0;
+    };
+
+    return {
+      current: parseNum(curText),
+      capacity: capText,
+      avg: parseNum(avgText),
+      max: parseNum(maxText),
+      min: parseNum(minText),
+    };
   }
 
-  async isTableVisible(): Promise<boolean> {
-    try {
-      // Bắt cả table, grid, list card, và bất kỳ container dữ liệu nào
-      const tableVisible = await this.dataTable.first().isVisible();
-      if (tableVisible) return true;
-      // Fallback: tìm bất kỳ row/card nào có số đếm
-      const hasRows = (await this.tableRow.count()) > 0;
-      return hasRows;
-    } catch {
-      return false;
+  // ===== ĐỌC SỐ LIỆU KPI LANE =====
+  async getLaneKpiNumbers(): Promise<{ total: number; highestLane: string; highestCount: number }> {
+    const totalText = await this.laneKpiTotal.innerText().catch(() => '0');
+    const highestText = await this.laneKpiHighest.innerText().catch(() => '');
+
+    const parseNum = (str: string) => {
+      const match = str.replace(/,/g, '').match(/\d+/);
+      return match ? parseInt(match[0], 10) : 0;
+    };
+
+    return {
+      total: parseNum(totalText),
+      highestLane: highestText,
+      highestCount: parseNum(highestText),
+    };
+  }
+
+  // ===== ĐỌC BẢNG HƯỚNG CROSSLINE =====
+  async getDirectionTableTotal(): Promise<number> {
+    const text = await this.crosslineDirectionTable.innerText().catch(() => '');
+    const match = text.match(/Tổng cộng\s+(\d+)\s+(\d+)\s+(\d+)/);
+    if (match) {
+      return parseInt(match[3], 10);
     }
-  }
-
-  async getTableRowCount(): Promise<number> {
-    try {
-      return await this.tableRow.count();
-    } catch {
-      return 0;
+    const matchAlt = text.match(/Tổng cộng[^\n]*\n[^\n]*(\d[\d,]*)/);
+    if (matchAlt) {
+      return parseInt(matchAlt[1].replace(/,/g, ''), 10);
     }
+    return 0;
   }
 
-  async isEmptyState(): Promise<boolean> {
-    try {
-      return await this.tableEmptyState.isVisible({ timeout: 3000 });
-    } catch {
-      return false;
+  // ===== ĐỌC BẢNG LANE OBJECT =====
+  async getLaneTableTotal(): Promise<number> {
+    const text = await this.laneObjectTable.innerText().catch(() => '');
+    const match = text.match(/Tổng cộng[^\d]*(\d[\d,]*)[^\d]*(\d[\d,]*)[^\d]*(\d[\d,]*)[^\d]*(\d[\d,]*)/);
+    if (match) {
+      return parseInt(match[4].replace(/,/g, ''), 10);
     }
-  }
-
-  async isChartVisible(): Promise<boolean> {
-    try {
-      return await this.chartContainer.isVisible({ timeout: 3000 });
-    } catch {
-      return false;
-    }
-  }
-
-  // ===== BỘ LỌC =====
-  async waitForLoading(timeout = 15000) {
-    const loader = this.loadingIndicator.first();
-    try {
-      await loader.waitFor({ state: 'visible', timeout: 1500 });
-      await loader.waitFor({ state: 'hidden', timeout });
-    } catch {
-      // Không có loader thì bỏ qua.
-    }
-  }
-
-  async selectCamera(cameraName: string) {
-    const sel = this.cameraSelector.first();
-    if (await sel.isVisible()) {
-      await sel.click();
-      await this.page.getByRole('option', { name: cameraName }).first().click();
-    }
-  }
-
-  async clickSearch() {
-    const btn = this.searchButton.first();
-    if (await btn.isVisible()) {
-      await btn.click();
-      await this.waitForLoading();
-    }
-  }
-
-  async clickExport() {
-    const btn = this.exportButton.first();
-    if (await btn.isVisible()) await btn.click();
+    return 0;
   }
 }

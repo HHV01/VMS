@@ -1,27 +1,22 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { test as base } from './base.fixture';
-import { VmsSmartSearchPage } from '../pages/vms-smart-search.page';
-import { requireEnv } from '../utils/env';
+import { chromium } from '@playwright/test';
 
-// Đăng nhập VMS một lần cho mỗi worker rồi mọi test dùng lại phiên đó.
-// File phiên nằm trong outputDir của lần chạy (artifacts/, đã gitignore): Playwright xóa ở lần chạy sau,
-// nên không dùng lại phiên cũ đã hết hạn, và worker khởi động lại sau test fail vẫn dùng lại được.
-export const test = base.extend<object, { vmsStorageState: string }>({
-  storageState: ({ vmsStorageState }, use) => use(vmsStorageState),
-  vmsStorageState: [
-    async ({ browser }, use, workerInfo) => {
-      const file = join(workerInfo.project.outputDir, `.vms-auth-${workerInfo.parallelIndex}.json`);
-      if (!existsSync(file)) {
-        const page = await browser.newPage();
-        await new VmsSmartSearchPage(page).login(requireEnv('VMS_USERNAME'), requireEnv('VMS_PASSWORD'));
-        await page.context().storageState({ path: file });
-        await page.context().close();
+export const test = base.extend({
+  page: async ({ page }, use) => {
+    try {
+      const browser = await chromium.connectOverCDP('http://127.0.0.1:9222', { timeout: 3000 });
+      const context = browser.contexts()[0] || (await browser.newContext());
+      let livePage = context.pages().find(p => p.url().includes('180.148.1.242'));
+      if (!livePage) {
+        livePage = await context.newPage();
+        await livePage.goto('http://180.148.1.242:8004/video-analytic/object-counting', { waitUntil: 'domcontentloaded' });
       }
-      await use(file);
-    },
-    { scope: 'worker' },
-  ],
+      await use(livePage);
+    } catch {
+      await use(page);
+    }
+  },
 });
 
 export { expect } from './base.fixture';
+
