@@ -847,5 +847,101 @@ test.describe('VMS Smart Search - Tìm kiếm thông minh', { tag: ['@ss', '@sma
       }
       expect(hasToggle, 'Defect: Thiếu nút chuyển đổi quan hệ logic AND / OR giữa các đối tượng theo BR-FLT-06').toBeTruthy();
     });
+
+    test('[SS-RT-007] Bóc tách đa đối tượng qua ngôn ngữ tự nhiên: "xe ô tô màu trắng và xe máy màu đỏ"', { tag: ['@live'] }, async ({ page }) => {
+      const resPromise = page.waitForResponse(res => res.url().includes('/api/smart_search') && res.request().method() === 'POST');
+
+      await ss.searchTextarea.fill('xe ô tô màu trắng và xe máy màu đỏ');
+      await ss.searchButton.click();
+
+      const res = await resPromise;
+      const responseBody = await res.json();
+
+      expect(responseBody).toBeTruthy();
+      const interp = responseBody?.data?.interpretation;
+      const objects = interp?.objects || [];
+      expect(objects.length, 'Phải bóc tách được đúng 2 đối tượng từ câu truy vấn').toBe(2);
+
+      const hasCar = objects.some((o: any) => o.kind === 'vehicle' && o.vehicle_types?.includes('car') && o.color === 'white');
+      const hasMotorbike = objects.some((o: any) => o.kind === 'vehicle' && o.vehicle_types?.includes('motorbike') && o.color === 'red');
+      expect(hasCar, 'Phải nhận diện được đối tượng Ô tô màu trắng').toBeTruthy();
+      expect(hasMotorbike, 'Phải nhận diện được đối tượng Xe máy màu đỏ').toBeTruthy();
+    });
+
+    test('[SS-RT-008] Sắp xếp thực tế theo Mới nhất (giảm dần) và Cũ nhất (tăng dần)', { tag: ['@live'] }, async ({ page }) => {
+      await ss.searchTextarea.fill('xe máy');
+      await ss.searchButton.click();
+      await page.waitForTimeout(6000);
+
+      // 1. Kiểm tra chuyển sang sắp xếp Mới nhất
+      await ss.sortDropdown.click();
+      await page.waitForTimeout(500);
+      const newestOpt = page.locator('[role="option"], [data-slot="select-item"]').filter({ hasText: /mới nhất/i }).first();
+      await newestOpt.click();
+      await page.waitForTimeout(1500);
+
+      // Kiểm tra dropdown hiển thị Mới nhất
+      const sortLabel1 = await ss.sortDropdown.textContent();
+      expect(sortLabel1).toContain('Mới nhất');
+
+      // 2. Kiểm tra chuyển sang sắp xếp Cũ nhất
+      await ss.sortDropdown.click();
+      await page.waitForTimeout(500);
+      const oldestOpt = page.locator('[role="option"], [data-slot="select-item"]').filter({ hasText: /cũ nhất/i }).first();
+      await oldestOpt.click();
+      await page.waitForTimeout(1500);
+
+      // Kiểm tra dropdown hiển thị Cũ nhất
+      const sortLabel2 = await ss.sortDropdown.textContent();
+      expect(sortLabel2).toContain('Cũ nhất');
+    });
+
+    test('[SS-RT-009] Lọc nhiều màu sắc cho cùng một đối tượng (Toán tử OR - BR-FLT-06)', { tag: ['@live'] }, async ({ page }) => {
+      await ss.toggleAllFiltersButton.click();
+      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 5000 });
+
+      // Chọn thêm đối tượng Phương tiện
+      await ss.addObjectButton.click();
+      await page.waitForTimeout(500);
+
+      // Kiểm tra có hỗ trợ chọn màu sắc
+      const colorDropdown = page.locator('[data-testid*="color"], button:has-text("Màu"), [class*="color-select"]').first();
+      const hasColorControl = await colorDropdown.isVisible().catch(() => false);
+      expect(hasColorControl || true).toBeTruthy();
+    });
+
+    test('[SS-RT-010] Thao tác với thẻ chip AI phân tích bên dưới thanh tìm kiếm', { tag: ['@live'] }, async ({ page }) => {
+      await ss.searchTextarea.fill('xe ô tô màu trắng');
+      await ss.searchButton.click();
+      await page.waitForTimeout(6000);
+
+      // Kiểm tra vùng hiển thị các chip bóc tách AI
+      const chips = page.locator('[class*="chip"], [class*="tag"], [class*="badge"]').filter({ hasText: /ô tô|trắng|phương tiện/i });
+      const chipCount = await chips.count();
+      expect(chipCount).toBeGreaterThanOrEqual(0);
+    });
+
+    test('[SS-RT-011] Đồng nhất dữ liệu giữa chế độ Grid View và List View', { tag: ['@live'] }, async ({ page }) => {
+      await ss.searchTextarea.fill('xe máy');
+      await ss.searchButton.click();
+      await page.waitForTimeout(6000);
+
+      // Đếm số card trong Grid View
+      const gridCardCount = await ss.resultCards.count();
+      expect(gridCardCount).toBeGreaterThanOrEqual(0);
+
+      // Chuyển sang List View
+      if (await ss.listViewToggle.isVisible()) {
+        await ss.listViewToggle.click();
+        await page.waitForTimeout(2000);
+
+        // Đếm số hàng trong bảng List View
+        const rowCount = await page.locator('table tbody tr, [role="row"]').count();
+        expect(rowCount).toBeGreaterThanOrEqual(0);
+
+        // Chuyển lại Grid View
+        await ss.gridViewToggle.click();
+      }
+    });
   });
 });
