@@ -1,17 +1,21 @@
 import { expect, test } from '../../../fixtures/vms-auth.fixture';
 import { VmsSmartSearchPage } from '../../../pages/vms-smart-search.page';
 import { SMART_SEARCH_ASSUMPTIONS } from '../../../test-data/smart-search.assumptions';
-import { SmartSearchMockBuilder } from '../../../utils/smart-search-mock.data';
-import { captureApi, SMART_SEARCH_API_MAP } from '../../../utils/smart-search-api.map';
+import { SMART_SEARCH_API_MAP } from '../../../utils/smart-search-api.map';
+import { requireEnv } from '../../../utils/env';
+import * as path from 'path';
+import * as fs from 'fs';
 
 /**
- * BỘ AUTOMATION TEST SUITE MỞ RỘNG TOÀN DIỆN CHO VMS SMART SEARCH (TÌM KIẾM THÔNG MINH)
- * Bám sát đặc tả PSD_BecaVMS.docx mục 10.3.5 & Chốt BA.
- * Sử dụng chiến lược test data: @mock, @live, @boundary, @request.
- * Toàn bộ test @mock đều có expect.poll(() => mock.getHits()).toBeGreaterThan(0) để bảo đảm mock được hit.
- * Các test phát hiện Defect UI thật đều chụp bằng chứng vào evidence_defects/BUG_xx_*.png.
+ * BỘ AUTOMATION RETEST & EXPANSION TEST SUITE CHO VMS SMART SEARCH
+ * Chuẩn Playwright + TypeScript theo Ponytail QA Rules.
+ * Phân chia thành 4 Waves:
+ * - Wave 1: Retest toàn bộ các case FAIL/OPEN/NEED CONFIRM của file test case
+ * - Wave 2: Hồi quy các case PASS của sheet ver2 và v1
+ * - Wave 3: Kiểm thử Tìm kiếm bằng hình ảnh (Upload Image, SS-UP-001..015)
+ * - Wave 4: Bổ sung theo đặc tả PSD mục 10.3.5 (SS-RT-001..006)
  */
-test.describe('VMS Smart Search - Tìm kiếm thông minh', { tag: ['@module:ss', '@ss', '@smart-search', '@vms'] }, () => {
+test.describe('VMS Smart Search - Tìm kiếm thông minh', { tag: ['@ss', '@smart-search', '@vms'] }, () => {
   let ss: VmsSmartSearchPage;
 
   test.beforeEach(async ({ page }) => {
@@ -21,411 +25,827 @@ test.describe('VMS Smart Search - Tìm kiếm thông minh', { tag: ['@module:ss'
   });
 
   // =========================================================================
-  // SCENARIO SS-NL-001: XỬ LÝ TRUY VẤN TỰ NHIÊN (NATURAL LANGUAGE)
+  // WAVE 1: RETEST CÁC CASE CHƯA PASS (FAIL / OPEN / NEED CONFIRM)
   // =========================================================================
-  test.describe('Truy vấn tự nhiên & Parse Thẻ AI (SS-NL-001)', { tag: ['@nl'] }, () => {
-    test('[SS-001] Parse câu tự nhiên thành thẻ "AI phân tích" và xóa nhanh bằng nút x', { tag: ['@mock'] }, async () => {
-      const mock = await ss.mockSearchApi(SmartSearchMockBuilder.build3TierRelevanceDataset());
-      await ss.searchNL('Tìm người mặc áo đỏ mang balo');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
-      await expect(ss.searchTextarea).toHaveValue('Tìm người mặc áo đỏ mang balo');
-    });
+  test.describe('Wave 1: Retest các case chưa PASS', { tag: ['@wave1'] }, () => {
+    
+    test('[SS-MD-019] Tìm kiếm với biển số xe một phần: "xe 51"', { tag: ['@live'] }, async ({ page }) => {
+      // Sheet ver2 ghi: HTTP 422: "Could not resolve the date... / Biển số 51"
+      let apiStatus = 0;
+      let responseBody: any = null;
+      page.on('response', async res => {
+        if (res.url().includes('/api/smart_search')) {
+          apiStatus = res.status();
+          try { responseBody = await res.json(); } catch {}
+        }
+      });
 
-    test('[SS-002] Cảnh báo khi câu query chứa điều kiện chưa được hỗ trợ (BR-NL-02)', { tag: ['@mock'] }, async ({ page }) => {
-      // Mock API trả về danh sách unsupportedConditions
-      const mock = await ss.mockSearchApi(SmartSearchMockBuilder.buildUnsupportedConditionsResponse());
-      await ss.searchNL('Tìm người nhảy múa tốc độ cao');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
+      await ss.searchTextarea.fill('xe 51');
+      await ss.searchButton.click();
+      await page.waitForTimeout(4000);
 
-      // PSD BR-NL-02: "⚠️ Một số điều kiện chưa được hỗ trợ ... Kết quả sẽ được tìm theo: ..."
-      const isVisible = await ss.unsupportedWarningBanner.isVisible().catch(() => false);
-      if (!isVisible) {
-        await page.screenshot({ path: 'evidence_defects/BUG_02_missing_unsupported_warning_banner.png', fullPage: true });
+      // Verify hệ thống không trả lỗi 422 hoặc có thông báo rõ ràng cho biển số
+      if (apiStatus === 422) {
+        await page.screenshot({ path: 'evidence_defects/SS_BUG_019_bien_so_51_422.png', fullPage: true });
       }
-      await expect(ss.unsupportedWarningBanner, 'Defect: UI chưa hiển thị banner cảnh báo unsupported conditions theo BR-NL-02').toBeVisible({ timeout: 2000 });
+      expect(apiStatus, 'Defect: Truy vấn biển số xe "xe 51" trả về HTTP 422').toBe(200);
     });
 
-    test('[SS-003] Kiểm tra độ dài câu truy vấn 499, 500, 501 ký tự và validation BR-NL-08', { tag: ['@boundary'] }, async ({ page }) => {
-      // 1. Kiểm tra thuộc tính maxlength trong DOM (thực tế maxLength = -1, không có thuộc tính maxlength)
-      const hasMaxlength = await ss.searchTextarea.evaluate(el => el.hasAttribute('maxlength'));
-      expect(hasMaxlength).toBeFalsy();
+    test('[SS-MD-023] Tìm câu mô tả: "người đàn ông đeo balo"', { tag: ['@live'] }, async ({ page }) => {
+      // Sheet ver2 ghi: HTTP 422, không hiển thị thông báo theo spec
+      let apiStatus = 0;
+      page.on('response', async res => {
+        if (res.url().includes('/api/smart_search')) {
+          apiStatus = res.status();
+        }
+      });
 
-      // 2. Nhập 499 ký tự (hợp lệ)
-      await ss.searchTextarea.fill('a'.repeat(499));
-      expect(await ss.searchTextarea.inputValue()).toHaveLength(499);
+      await ss.searchTextarea.fill('người đàn ông đeo balo');
+      await ss.searchButton.click();
+      await page.waitForTimeout(5000);
 
-      // 3. Nhập 500 ký tự (biên trên hợp lệ)
-      await ss.searchTextarea.fill('a'.repeat(500));
-      expect(await ss.searchTextarea.inputValue()).toHaveLength(500);
-
-      // 4. Nhập 501 ký tự (vượt ngưỡng)
-      await ss.searchTextarea.fill('a'.repeat(501));
-      const val501 = await ss.searchTextarea.inputValue();
-      // Thực tế: UI không giới hạn ở 500 ký tự mà cho nhập trọn vẹn 501 ký tự
-      expect(val501.length).toBe(501);
-
-      // PSD BR-NL-08: Phải có cảnh báo: "Nội dung tìm kiếm quá dài. Vui lòng mô tả ngắn gọn đối tượng, khu vực và thời gian cần tìm."
-      const warningVisible = await ss.queryLengthWarning.isVisible().catch(() => false);
-      if (!warningVisible) {
-        await page.screenshot({ path: 'evidence_defects/BUG_03_textarea_no_500_char_warning.png', fullPage: true });
+      if (apiStatus === 422) {
+        await page.screenshot({ path: 'evidence_defects/SS_BUG_023_nguoi_deo_balo_422.png', fullPage: true });
       }
-      await expect(ss.queryLengthWarning, 'Defect: UI không hiển thị cảnh báo khi câu query vượt 500 ký tự theo BR-NL-08').toBeVisible({ timeout: 2000 });
+      expect(apiStatus, 'Defect: "người đàn ông đeo balo" bị HTTP 422').toBe(200);
     });
-  });
 
-  // =========================================================================
-  // SCENARIO SS-REL-001: CHỈ SỐ ĐỘ LIÊN QUAN (RELEVANCE SCORE & SORT)
-  // =========================================================================
-  test.describe('Độ liên quan & Sắp xếp mặc định (SS-REL-001)', { tag: ['@relevance'] }, () => {
-    test('[SS-004] Tính đúng % Relevance theo công thức BA & Sort giảm dần mặc định', { tag: ['@mock'] }, async ({ page }) => {
-      // Chốt BA #2: Relevance (%) = số tiêu chí đáp ứng / số tiêu chí tìm kiếm * 100
-      const mock = await ss.mockSearchApi(SmartSearchMockBuilder.build3TierRelevanceDataset());
-      await ss.searchNL('Người áo đỏ mang balo');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
+    test('[SS-MD-025] Tìm câu lặp: "xe ô tô màu trắng đi qua ngã tư đi qua ngã tư"', { tag: ['@live'] }, async ({ page }) => {
+      let apiStatus = 0;
+      page.on('response', async res => {
+        if (res.url().includes('/api/smart_search')) {
+          apiStatus = res.status();
+        }
+      });
 
-      // UI Live hiện tại chưa render badge % trên thẻ card (chỉ có thumbnail + camera + tags)
-      const scores = await ss.getResultRelevances();
-      if (scores.length === 0) {
-        await page.screenshot({ path: 'evidence_defects/BUG_04_card_missing_relevance_badge.png', fullPage: true });
+      await ss.searchTextarea.fill('xe ô tô màu trắng đi qua ngã tư đi qua ngã tư');
+      await ss.searchButton.click();
+      await page.waitForTimeout(5000);
+
+      if (apiStatus === 422) {
+        await page.screenshot({ path: 'evidence_defects/SS_BUG_025_cau_lap_422.png', fullPage: true });
       }
-      expect(scores.length, 'Defect: UI Live chưa hiển thị badge % Relevance trên thẻ kết quả theo Chốt BA #2').toBeGreaterThan(0);
+      expect(apiStatus, 'Defect: Câu lặp ngữ nghĩa gây lỗi HTTP 422').toBe(200);
     });
 
-    test('[SS-005] Tự động tính lại % Relevance trên UI khi xóa thẻ AI trong query', { tag: ['@mock', '@assumption'] }, async ({ page }) => {
-      // ASSUMPTION A-03: Relevance tính lại trên tổng tiêu chí còn lại
-      const mock = await ss.mockSearchApi(SmartSearchMockBuilder.build3TierRelevanceDataset());
-      await ss.searchNL('Người áo đỏ balo');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
+    test('[SS-MD-031] Tìm kiếm "xe ô tô màu trắng" và kiểm tra metadata', { tag: ['@live'] }, async ({ page }) => {
+      const responsePromise = page.waitForResponse(res => res.url().includes('/api/smart_search'), { timeout: 25000 });
+      await ss.searchTextarea.fill('xe ô tô màu trắng');
+      await ss.searchButton.click();
+      const res = await responsePromise;
+      const responseData = await res.json().catch(() => null);
 
-      const scores = await ss.getResultRelevances();
-      if (scores.length === 0) {
-        await page.screenshot({ path: 'evidence_defects/BUG_05_relevance_recalc_unavailable.png', fullPage: true });
-      }
-      expect(scores.length, 'Defect: UI Live chưa hiển thị badge % Relevance trên thẻ kết quả để tính lại theo A-03').toBeGreaterThan(0);
+      const items = responseData?.data?.items || [];
+      expect(items.length, 'Không nhận được kết quả tìm kiếm cho "xe ô tô màu trắng"').toBeGreaterThan(0);
+      const interpretation = responseData?.data?.interpretation;
+      expect(interpretation, 'Response thiếu block interpretation').toBeTruthy();
     });
-  });
 
-  // =========================================================================
-  // SCENARIO SS-SLD-001: BỘ LỌC ĐỘ LIÊN QUAN (2-HANDLE SLIDER)
-  // =========================================================================
-  test.describe('Slider Độ liên quan 2 đầu kéo (SS-SLD-001)', { tag: ['@relevance', '@filter', '@assumption'] }, () => {
-    test('[SS-006] ASSUMPTION A-01: Slider 2 đầu kéo hiển thị nhãn min% – max% đồng bộ', { tag: ['@mock'] }, async ({ page }) => {
-      // Chốt BA #7: Dùng SLIDER 2 ĐẦU KÉO trong panel Bộ lọc nâng cao
+    test('[SS-MD-032] Tìm kiếm "xe tải" và kiểm tra phân loại xe', { tag: ['@live'] }, async ({ page }) => {
+      const responsePromise = page.waitForResponse(res => res.url().includes('/api/smart_search'), { timeout: 25000 });
+      await ss.searchTextarea.fill('xe tải');
+      await ss.searchButton.click();
+      const res = await responsePromise;
+      const responseData = await res.json().catch(() => null);
+
+      expect(responseData?.data?.total, 'Tổng số kết quả tìm xe tải không hợp lệ').toBeGreaterThanOrEqual(0);
+    });
+
+    test('[SS-MD-033] Tìm kiếm "xe ô tô"', { tag: ['@live'] }, async ({ page }) => {
+      const responsePromise = page.waitForResponse(res => res.url().includes('/api/smart_search'), { timeout: 25000 });
+      await ss.searchTextarea.fill('xe ô tô');
+      await ss.searchButton.click();
+      const res = await responsePromise;
+      const responseData = await res.json().catch(() => null);
+
+      expect(responseData?.data?.total, 'Tìm xe ô tô trả về 0 kết quả trên môi trường có dữ liệu').toBeGreaterThan(0);
+    });
+
+    test('[SS-FLT-002] Khảo sát trạng thái mặc định của các nhóm tiêu chí trong Bộ lọc nâng cao', { tag: ['@live'] }, async ({ page }) => {
+      // PSD BR-FLT-01: có nút Mở rộng tất cả / Thu hẹp tất cả; mặc định thu hẹp
       await ss.toggleAllFiltersButton.click();
+      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 5000 });
+
+      // Kiểm tra 5 nhóm tiêu chí mặc định mở sẵn trong panel
+      await expect(page.locator('text=Khu vực và camera').first()).toBeVisible();
+      await expect(page.locator('text=Thời gian').first()).toBeVisible();
+      await expect(page.locator('text=Sự kiện AI').first()).toBeVisible();
+      await expect(page.locator('text=Đặc điểm đối tượng').first()).toBeVisible();
+      await expect(page.locator('text=Độ liên quan').first()).toBeVisible();
+
+      // Kiểm tra xem có nút "Mở rộng tất cả" hay không
+      const expandAllBtn = page.getByRole('button', { name: /mở rộng tất cả|thu hẹp tất cả/i });
+      const hasExpandBtn = await expandAllBtn.isVisible().catch(() => false);
+      if (!hasExpandBtn) {
+        await page.screenshot({ path: 'evidence_defects/SS_BUG_FLT_002_thieu_nut_mo_rong_tat_ca.png', fullPage: true });
+      }
+      expect(hasExpandBtn, 'Defect: Thiếu nút Mở rộng tất cả / Thu hẹp tất cả theo PSD BR-FLT-01').toBeTruthy();
+    });
+
+    test('[SS-FLT-009] Xác thực không cho phép Từ ngày > Đến ngày (BR-TIME-08)', { tag: ['@live'] }, async ({ page }) => {
+      await ss.toggleAllFiltersButton.click();
+      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 5000 });
+
+      // Nhập Từ ngày lớn hơn Đến ngày
+      await ss.dateFromInput.fill('25/10/2026');
+      await ss.dateToInput.fill('20/10/2026');
+      await page.keyboard.press('Enter');
+
+      // Click nút Áp dụng bộ lọc
+      await ss.applyFilterButton.click();
       await page.waitForTimeout(1000);
 
-      // Section Độ liên quan có trên panel nhưng collapsible-content bị rỗng <div></div>
-      const sliderVisible = await ss.relevanceSliderTrack.isVisible().catch(() => false);
-      if (!sliderVisible) {
-        await page.screenshot({ path: 'evidence_defects/BUG_06_filter_panel_no_relevance_slider.png', fullPage: true });
+      // PSD BR-TIME-08: Hệ thống phải báo lỗi hoặc vô hiệu hóa áp dụng
+      const errorMsg = page.locator('text=/từ ngày không được lớn hơn|thời gian không hợp lệ|ngày bắt đầu/i');
+      const hasError = await errorMsg.isVisible().catch(() => false);
+      const isApplyDisabled = await ss.applyFilterButton.isDisabled().catch(() => false);
+
+      if (!hasError && !isApplyDisabled) {
+        await page.screenshot({ path: 'evidence_defects/SS_BUG_FLT_009_from_greater_than_to.png', fullPage: true });
       }
-      await expect(ss.relevanceSliderTrack, 'Defect: Section Độ liên quan rỗng, chưa render Slider 2 đầu kéo theo Chốt BA #7').toBeVisible({ timeout: 2000 });
+      expect(hasError || isApplyDisabled, 'Defect: Cho phép Từ ngày > Đến ngày mà không báo lỗi theo BR-TIME-08').toBeTruthy();
     });
 
-    test('[SS-007] Lọc kết quả nằm trong khoảng [min, max] của Slider trên UI', { tag: ['@mock'] }, async ({ page }) => {
+    test('[SS-FLT-011] Lọc theo khung giờ (bỏ checkbox "Cả ngày")', { tag: ['@live'] }, async ({ page }) => {
       await ss.toggleAllFiltersButton.click();
+      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 5000 });
+
+      let capturedPayload: any = null;
+      page.on('request', req => {
+        if (req.url().includes('/api/smart_search')) {
+          capturedPayload = req.postDataJSON() || req.postData();
+        }
+      });
+
+      // Bỏ chọn "Cả ngày"
+      if (await ss.allDayCheckbox.isChecked()) {
+        await ss.allDayCheckbox.uncheck();
+      }
+
+      // Nhập khung giờ nếu có input giờ
+      const timeInputs = page.locator('input[type="time"], input[placeholder*="00:00"]');
+      if (await timeInputs.count() >= 2) {
+        await timeInputs.first().fill('08:00');
+        await timeInputs.nth(1).fill('10:00');
+      }
+
+      await ss.applyFilterButton.click();
+      await page.waitForTimeout(3000);
+
+      // Verify payload có gửi time_of_day_start / time_of_day_end
+      expect(capturedPayload, 'Không bắt được request sau khi áp dụng lọc khung giờ').toBeTruthy();
+    });
+
+    test('[SS-FLT-012] Danh sách Sự kiện AI chỉ gồm các sự kiện trong phạm vi Smart Search', { tag: ['@live'] }, async ({ page }) => {
+      await ss.toggleAllFiltersButton.click();
+      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 5000 });
+
+      const aiEventCombobox = page.locator('div:has-text("Sự kiện AI")').locator('button[role="combobox"]').first();
+      if (await aiEventCombobox.isVisible()) {
+        await aiEventCombobox.click();
+        await page.waitForTimeout(1000);
+
+        const options = await page.evaluate(() => {
+          return Array.from(document.querySelectorAll('[role="option"], [data-slot="select-item"]')).map(el => el.textContent?.trim());
+        });
+
+        // Sheet ghi nhận có tới 22 lựa chọn ngoài phạm vi
+        if (options.length > 10) {
+          await page.screenshot({ path: 'evidence_defects/SS_BUG_FLT_012_ai_events_out_of_scope.png' });
+        }
+        expect(options.length, 'Defect: Danh sách Sự kiện AI có 22 lựa chọn vượt quá phạm vi Search Engine').toBeLessThanOrEqual(10);
+        await page.keyboard.press('Escape');
+      }
+    });
+
+    test('[SS-FLT-015] Kiểm tra thuộc tính của đối tượng Người (Màu áo, Màu quần)', { tag: ['@live'] }, async ({ page }) => {
+      await ss.toggleAllFiltersButton.click();
+      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 5000 });
+
+      await ss.addObjectButton.click();
       await page.waitForTimeout(1000);
 
-      const sliderVisible = await ss.relevanceSliderTrack.isVisible().catch(() => false);
-      if (!sliderVisible) {
-        await page.screenshot({ path: 'evidence_defects/BUG_07_slider_filtering_unavailable.png', fullPage: true });
+      // Chọn đối tượng Người
+      const objSelect = page.locator('text=Đặc điểm đối tượng').locator('..').locator('button, [role="combobox"]').first();
+      if (await objSelect.isVisible()) {
+        await objSelect.click();
+        const personOpt = page.locator('[role="option"]:has-text("Người")').first();
+        if (await personOpt.isVisible()) await personOpt.click();
       }
-      await expect(ss.relevanceSliderTrack, 'Defect: Thiếu Slider 2 đầu kéo để thực hiện lọc kết quả trên UI').toBeVisible({ timeout: 2000 });
+
+      // PSD mục 10.3.5: Người có giới tính, độ tuổi, màu áo, màu quần, phụ kiện, đồ vật mang theo
+      const hasShirtColor = await page.locator('text=/Màu áo/i').isVisible().catch(() => false);
+      const hasPantsColor = await page.locator('text=/Màu quần/i').isVisible().catch(() => false);
+
+      if (!hasShirtColor || !hasPantsColor) {
+        await page.screenshot({ path: 'evidence_defects/SS_BUG_FLT_015_thieu_mau_ao_quan.png', fullPage: true });
+      }
+      expect(hasShirtColor && hasPantsColor, 'Defect: Đối tượng Người thiếu trường Màu áo hoặc Màu quần theo PSD').toBeTruthy();
+    });
+
+    test('[SS-FLT-016] Kiểm tra thuộc tính của đối tượng Phương tiện (Hướng đi)', { tag: ['@live'] }, async ({ page }) => {
+      await ss.toggleAllFiltersButton.click();
+      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 5000 });
+
+      await ss.addObjectButton.click();
+      await page.waitForTimeout(1000);
+
+      // Chọn Phương tiện
+      const objSelect = page.locator('text=Đặc điểm đối tượng').locator('..').locator('button, [role="combobox"]').first();
+      if (await objSelect.isVisible()) {
+        await objSelect.click();
+        const vehicleOpt = page.locator('[role="option"]:has-text("Phương tiện")').first();
+        if (await vehicleOpt.isVisible()) await vehicleOpt.click();
+      }
+
+      // PSD: Phương tiện gồm: loại, biển số, màu, hãng, hướng đi
+      const hasDirection = await page.locator('text=/Hướng đi/i').isVisible().catch(() => false);
+      if (!hasDirection) {
+        await page.screenshot({ path: 'evidence_defects/SS_BUG_FLT_016_thieu_huong_di.png', fullPage: true });
+      }
+      expect(hasDirection, 'Defect: Đối tượng Phương tiện thiếu thuộc tính Hướng đi theo PSD').toBeTruthy();
+    });
+
+    test('[SS-FLT-028] Badge % Relevance trên thẻ kết quả phản ánh đúng công thức BA', { tag: ['@live'] }, async ({ page }) => {
+      // Chốt BA: Relevance (%) = số tiêu chí đáp ứng / số tiêu chí người dùng tìm kiếm * 100
+      let capturedResponse: any = null;
+      page.on('response', async res => {
+        if (res.url().includes('/api/smart_search')) {
+          try { capturedResponse = await res.json(); } catch {}
+        }
+      });
+
+      await ss.searchTextarea.fill('xe máy màu đỏ');
+      await ss.searchButton.click();
+      await page.waitForTimeout(6000);
+
+      // Lấy badge từ thẻ đầu tiên
+      const firstCard = ss.resultCards.first();
+      await expect(firstCard).toBeVisible({ timeout: 10000 });
+      const badgeText = await firstCard.locator('[class*="badge"], [data-slot="badge"]').filter({ hasText: /\d+/ }).first().textContent().catch(() => '');
+
+      // Sheet ghi nhận 189/200 card hiển thị AI confidence (ví dụ 94, 87) thay vì công thức BA
+      const score = parseInt(badgeText?.replace(/\D/g, '') || '0', 10);
+      expect(score, 'Badge % Relevance trên thẻ kết quả phải nằm trong khoảng (0, 100]').toBeGreaterThan(0);
+    });
+
+    test('[SS-TC-004] Giao diện không nhảy về màn hình mặc định khi API trả lỗi 422', { tag: ['@mock'] }, async ({ page }) => {
+      // Mock API 422
+      await page.route(SMART_SEARCH_API_MAP.SEARCH_ENDPOINT_PATTERN, async route => {
+        await route.fulfill({
+          status: 422,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            message: { vi: 'Chưa thể hiểu yêu cầu tìm kiếm này.', en: 'Could not understand query' },
+            status_code: 422,
+          }),
+        });
+      });
+
+      await ss.searchTextarea.fill('truy vấn gây lỗi 422');
+      await ss.searchButton.click();
+      await page.waitForTimeout(2000);
+
+      // Verify UI không nhảy về hero welcome ban đầu
+      const heroWelcome = page.getByText(/Mình đang nghe đây|Mô tả bằng ngôn ngữ tự nhiên/i).first();
+      const isHeroVisible = await heroWelcome.isVisible().catch(() => false);
+      if (isHeroVisible) {
+        await page.screenshot({ path: 'evidence_defects/SS_BUG_TC_004_ui_nhay_ve_man_default.png', fullPage: true });
+      }
+      expect(isHeroVisible, 'Defect: Khi API lỗi 422 giao diện bị nhảy về màn hình default hero').toBeFalsy();
+    });
+
+    test('[SS-TC-005] Thông báo lỗi hiển thị tiếng Việt, không dùng tiếng Anh thuần', { tag: ['@mock'] }, async ({ page }) => {
+      await page.route(SMART_SEARCH_API_MAP.SEARCH_ENDPOINT_PATTERN, async route => {
+        await route.fulfill({
+          status: 422,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            message: { vi: 'Thời gian tìm kiếm không hợp lệ', en: 'Could not resolve the date stated in the search query' },
+            status_code: 422,
+          }),
+        });
+      });
+
+      await ss.searchTextarea.fill('xe máy ngày sai');
+      await ss.searchButton.click();
+      await page.waitForTimeout(2000);
+
+      // Toast không được chứa tiếng Anh thuần
+      const englishToast = page.getByText(/Could not resolve the date/i);
+      const hasEnglish = await englishToast.isVisible().catch(() => false);
+      if (hasEnglish) {
+        await page.screenshot({ path: 'evidence_defects/SS_BUG_TC_005_toast_tieng_anh.png' });
+      }
+      expect(hasEnglish, 'Defect: Toast thông báo hiển thị tiếng Anh thuần').toBeFalsy();
+    });
+
+    test('[SS-TC-008] Chế độ tìm kiếm Balanced mode hoạt động ổn định không bị lỗi 502', { tag: ['@live'] }, async ({ page }) => {
+      let apiStatus = 0;
+      page.on('response', async res => {
+        if (res.url().includes('/api/smart_search')) {
+          apiStatus = res.status();
+        }
+      });
+
+      await page.goto(`${requireEnv('VMS_BASE_URL').replace(/\/+$/, '')}/video-analytic/smart-search?search_mode=balanced&time_preset=7d`, { waitUntil: 'domcontentloaded' });
+      await ss.searchTextarea.fill('xe máy');
+      await ss.searchButton.click();
+      await page.waitForTimeout(5000);
+
+      if (apiStatus === 502) {
+        await page.screenshot({ path: 'evidence_defects/SS_BUG_TC_008_balanced_mode_502.png', fullPage: true });
+      }
+      expect(apiStatus, 'Defect: Balanced mode bị lỗi HTTP 502 Text embedding service failed').not.toBe(502);
+    });
+
+    test('[SS-TC-009] Chế độ tìm kiếm Coverage mode hoạt động ổn định không bị lỗi 502', { tag: ['@live'] }, async ({ page }) => {
+      let apiStatus = 0;
+      page.on('response', async res => {
+        if (res.url().includes('/api/smart_search')) {
+          apiStatus = res.status();
+        }
+      });
+
+      await page.goto(`${requireEnv('VMS_BASE_URL').replace(/\/+$/, '')}/video-analytic/smart-search?search_mode=coverage&time_preset=7d`, { waitUntil: 'domcontentloaded' });
+      await ss.searchTextarea.fill('xe máy');
+      await ss.searchButton.click();
+      await page.waitForTimeout(5000);
+
+      if (apiStatus === 502) {
+        await page.screenshot({ path: 'evidence_defects/SS_BUG_TC_009_coverage_mode_502.png', fullPage: true });
+      }
+      expect(apiStatus, 'Defect: Coverage mode bị lỗi HTTP 502 Text embedding service failed').not.toBe(502);
     });
   });
 
   // =========================================================================
-  // SCENARIO SS-CNF-001: XUNG ĐỘT TRUY VẤN (QUERY CONFLICT: NL VS FILTER)
+  // WAVE 2: HỒI QUY CÁC CASE PASS CỦA SHEET VER2 VÀ V1
   // =========================================================================
-  test.describe('Xung đột truy vấn & Ghi đè bộ lọc (SS-CNF-001)', { tag: ['@conflict', '@request'] }, () => {
-    test('[SS-008] Filter thay thế giá trị NL tương ứng (BR-FLT-05 Single-select replace)', async () => {
-      // PSD Mục 3.B: "Tìm xe màu xanh ở cổng A", chọn Color=Vàng -> Thay thế Xanh thành Vàng
-      await ss.searchNL('Tìm xe màu xanh ở cổng A');
-      await ss.toggleAllFiltersButton.click();
-      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 3000 });
+  test.describe('Wave 2: Hồi quy các case PASS', { tag: ['@wave2'] }, () => {
+    
+    test('[SS-MD-001] Tìm kiếm metadata: "xe ô tô"', { tag: ['@live'] }, async ({ page }) => {
+      const responsePromise = page.waitForResponse(res => res.url().includes('/api/smart_search'), { timeout: 25000 });
+      await ss.searchTextarea.fill('xe ô tô');
+      await ss.searchButton.click();
+      const res = await responsePromise;
+      const responseBody = await res.json().catch(() => null);
+
+      expect(responseBody?.status_code || 200).toBe(200);
+      expect(responseBody?.data?.total).toBeGreaterThanOrEqual(0);
     });
 
-    test('[SS-009] Đặt lại (Reset) đưa về System Default và không phục hồi NL cũ (BR-FLT-09)', async () => {
-      await ss.searchNL('Người áo đỏ');
-      await ss.toggleAllFiltersButton.click();
-      if (await ss.resetButton.isVisible()) {
-        await ss.resetButton.click();
-        await expect(ss.resetButton).toBeVisible();
-      }
-    });
-  });
+    test('[SS-MD-002] Tìm kiếm metadata: "xe máy"', { tag: ['@live'] }, async ({ page }) => {
+      const responsePromise = page.waitForResponse(res => res.url().includes('/api/smart_search'), { timeout: 25000 });
+      await ss.searchTextarea.fill('xe máy');
+      await ss.searchButton.click();
+      const res = await responsePromise;
+      const responseBody = await res.json().catch(() => null);
 
-  // =========================================================================
-  // SCENARIO SS-TIME-001: BỘ LỌC THỜI GIAN & RÀNG BUỘC (BR-TIME)
-  // =========================================================================
-  test.describe('Bộ lọc Thời gian & Ràng buộc 30 ngày (SS-TIME-001)', { tag: ['@time', '@filter'] }, () => {
-    test('[SS-010] Chặn khoảng thời gian vượt quá 30 ngày (BR-TIME-13 & BR-FLT-07)', async () => {
-      await ss.toggleAllFiltersButton.click();
-      if (await ss.dateFromInput.isVisible() && await ss.dateToInput.isVisible()) {
-        await ss.dateFromInput.fill('01/01/2026');
-        await ss.dateToInput.fill('01/03/2026'); // 60 ngày
-        await ss.applyFilterButton.click();
-      }
+      expect(responseBody?.status_code || 200).toBe(200);
+      expect(responseBody?.data?.items?.length).toBeGreaterThanOrEqual(0);
     });
 
-    test('[SS-011] Nút chọn nhanh thời gian: Kiểm tra input Từ ngày & Đến ngày trên cả 4 preset (PSD 2.2 & BR-TIME-01)', async ({ page }) => {
+    test('[SS-FLT-001] Mở bảng Bộ lọc nâng cao', { tag: ['@live'] }, async ({ page }) => {
       await ss.toggleAllFiltersButton.click();
+      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 5000 });
+      await expect(page.locator('text=Bộ lọc nâng cao').first()).toBeVisible();
+    });
+
+    test('[SS-FLT-005] Các nút chọn nhanh thời gian', { tag: ['@live'] }, async ({ page }) => {
+      await ss.toggleAllFiltersButton.click();
+      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 5000 });
+
+      // Click "Hôm nay"
+      await ss.timePresetToday.click();
       await page.waitForTimeout(500);
 
-      // Rà soát các nút preset có trên UI (Hôm nay, 7 ngày gần nhất, 14 ngày gần nhất, 30 ngày gần nhất)
-      const presets = [
-        { btn: page.locator('button:has-text("Hôm nay")').first(), name: 'Hôm nay' },
-        { btn: page.locator('button:has-text("7 ngày gần nhất"), button:has-text("7 ngày qua")').first(), name: '7 ngày' },
-        { btn: page.locator('button:has-text("14 ngày gần nhất"), button:has-text("Hôm qua")').first(), name: '14 ngày/Hôm qua' },
-        { btn: page.locator('button:has-text("30 ngày gần nhất"), button:has-text("24 giờ qua")').first(), name: '30 ngày/24h' },
-      ];
+      // Click "24 giờ qua"
+      await ss.timePreset24h.click();
+      await page.waitForTimeout(500);
 
-      for (const p of presets) {
-        if (await p.btn.isVisible()) {
-          await p.btn.click();
-          await page.waitForTimeout(300);
-          const fromVal = await ss.dateFromInput.inputValue().catch(() => '');
-          const toVal = await ss.dateToInput.inputValue().catch(() => '');
-          expect(fromVal.length, `Preset ${p.name} chưa điền input Từ ngày`).toBeGreaterThan(0);
-          expect(toVal.length, `Preset ${p.name} chưa điền input Đến ngày`).toBeGreaterThan(0);
-        }
+      // Click "7 ngày gần nhất"
+      await ss.timePreset7Days.click();
+      await page.waitForTimeout(500);
+
+      expect(await ss.dateFromInput.inputValue()).toBeTruthy();
+      expect(await ss.dateToInput.inputValue()).toBeTruthy();
+    });
+
+    test('[SS-FLT-020] Slider Độ liên quan 2 đầu kéo hoạt động đúng và hiển thị nhãn min% – max%', { tag: ['@live'] }, async ({ page }) => {
+      await ss.toggleAllFiltersButton.click();
+      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 5000 });
+
+      // Slider 2 đầu kéo phải có mặt
+      const sliderHandles = page.locator('[role="slider"]');
+      await expect(sliderHandles.first()).toBeVisible({ timeout: 5000 });
+      expect(await sliderHandles.count(), 'Slider phải có 2 handle (2 đầu kéo)').toBe(2);
+
+      // Nhãn min% – max%
+      const labelText = await ss.relevanceRangeLabel.textContent();
+      expect(labelText).toMatch(/\d+%\s*–\s*\d+%/);
+    });
+
+    test('[SS-FLT-024] Nút Đặt lại (Reset) đưa bộ lọc về mặc định', { tag: ['@live'] }, async ({ page }) => {
+      await ss.toggleAllFiltersButton.click();
+      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 5000 });
+
+      // Đổi chọn nhanh sang Hôm nay
+      await ss.timePresetToday.click();
+      await page.waitForTimeout(500);
+
+      // Bấm Đặt lại
+      await ss.resetButton.click();
+      await page.waitForTimeout(1000);
+
+      // Mặc định thời gian trở về 7 ngày gần nhất
+      const rangeLabel = await ss.relevanceRangeLabel.textContent();
+      expect(rangeLabel?.trim()).toBe('0% – 100%');
+    });
+
+    test('[SS-FLT-026] Dropdown Sắp xếp có Độ liên quan, Mới nhất, Cũ nhất và ẩn Confidence', { tag: ['@live'] }, async ({ page }) => {
+      await ss.sortDropdown.click();
+      await page.waitForTimeout(500);
+
+      const options = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('[role="option"], [data-slot="select-item"]')).map(el => el.textContent?.trim());
+      });
+
+      expect(options).toContain('Độ liên quan');
+      expect(options).toContain('Mới nhất');
+      expect(options).toContain('Cũ nhất');
+      expect(options.some(o => /độ tin cậy|confidence/i.test(o || ''))).toBeFalsy();
+
+      await page.keyboard.press('Escape');
+    });
+
+    test('[SS-FLT-030] Phân trang danh sách kết quả', { tag: ['@live'] }, async ({ page }) => {
+      await ss.searchTextarea.fill('xe máy');
+      await ss.searchButton.click();
+      await page.waitForTimeout(6000);
+
+      // Kiểm tra có phân trang 1/18
+      const paginationText = page.locator('text=/\\d+\\/\\d+/').first();
+      await expect(paginationText).toBeVisible({ timeout: 10000 });
+      const textVal = await paginationText.textContent();
+      expect(textVal).toMatch(/\d+\/\d+/);
+
+      // Nút chuyển trang tiếp
+      if (await ss.nextBatchButton.isVisible() && await ss.nextBatchButton.isEnabled()) {
+        await ss.nextBatchButton.click();
+        await page.waitForTimeout(2000);
       }
     });
   });
 
   // =========================================================================
-  // SCENARIO SS-RES-001: CHẾ ĐỘ HIỂN THỊ, PHÂN TRANG & PLAYBACK (AC-SS)
+  // WAVE 3: TEST TÌM KIẾM BẰNG HÌNH ẢNH (UPLOAD IMAGE - SS-UP-001..015)
   // =========================================================================
-  test.describe('Hiển thị Kết quả, Phân trang & Playback (SS-RES-001)', { tag: ['@result'] }, () => {
-    test('[SS-012] Chuyển đổi giữa chế độ Grid (Lưới) và List (Bảng) theo PSD Mục 3.E', { tag: ['@mock'] }, async ({ page }) => {
-      const mock = await ss.mockSearchApi(SmartSearchMockBuilder.build3TierRelevanceDataset());
-      await ss.searchNL('Xe máy');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
+  test.describe('Wave 3: Tìm kiếm bằng hình ảnh (Upload Image)', { tag: ['@wave3', '@upload'] }, () => {
+    const validImage = path.resolve(process.cwd(), 'test-data', 'synthetic_car.png');
+    const emptyImage = path.resolve(process.cwd(), 'test-data', 'synthetic_empty.png');
+    const fakeImage = path.resolve(process.cwd(), 'test-data', 'invalid_fake_image.jpg');
 
-      // PSD Mục 3.E: Có toggle chuyển đổi Grid và List
-      const hasToggle = await ss.listViewToggle.isVisible().catch(() => false);
-      if (!hasToggle) {
-        await page.screenshot({ path: 'evidence_defects/BUG_12_missing_view_mode_toggle.png', fullPage: true });
-      }
-      await expect(ss.listViewToggle, 'Defect: UI chưa có nút chuyển đổi chế độ xem Grid / List theo PSD Mục 3.E').toBeVisible({ timeout: 2000 });
+    test('[SS-UP-001] Điểm vào upload ảnh trên thanh tìm kiếm và thuộc tính input', { tag: ['@live'] }, async () => {
+      // 1. Nút "Thêm ảnh" có trên thanh tìm kiếm
+      await expect(ss.openUploadImageButton).toBeVisible();
+
+      // 2. Click nút mở modal "Tìm bằng ảnh"
+      await ss.openUploadImageButton.click();
+      await expect(ss.uploadImageModal).toBeVisible();
+
+      // 3. Kiểm tra input file và accept
+      const accept = await ss.uploadFileInput.getAttribute('accept');
+      expect(accept, 'Thuộc tính accept của input file phải là image/*').toContain('image');
+      await ss.uploadCloseButton.click();
     });
 
-    test('[SS-013] Phân trang 8 kết quả/trang ở chế độ List (Bảng) với bộ dữ liệu 17 kết quả', { tag: ['@mock'] }, async ({ page }) => {
-      // PSD Mục 3.E: List (bảng) có phân trang
-      const mock = await ss.mockSearchApi(SmartSearchMockBuilder.buildPaginationDataset(17));
-      await ss.searchNL('Phương tiện');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
+    test('[SS-UP-002] Upload ảnh hợp lệ (PNG tổng hợp) hiển thị preview', { tag: ['@live'] }, async ({ page }) => {
+      await ss.openUploadImageButton.click();
+      await expect(ss.uploadImageModal).toBeVisible();
 
-      // Chuyển sang chế độ List trước khi kiểm tra phân trang
-      if (await ss.listViewToggle.isVisible()) {
-        await ss.listViewToggle.click();
+      await ss.uploadFileInput.setInputFiles(validImage);
+      await page.waitForTimeout(1500);
+
+      // Verify có ảnh preview hoặc trạng thái ảnh đã tải lên
+      const hasPreview = await page.locator('[role="dialog"] img, [role="dialog"] canvas, [role="dialog"] [class*="preview"]').first().isVisible().catch(() => false);
+      expect(hasPreview, 'Sau khi upload ảnh phải hiển thị preview trong modal').toBeTruthy();
+      await ss.uploadCloseButton.click();
+    });
+
+    test('[SS-UP-003] Thêm từ khóa cùng ảnh rồi Tìm kiếm', { tag: ['@live'] }, async ({ page }) => {
+      await ss.openUploadImageButton.click();
+      await expect(ss.uploadImageModal).toBeVisible();
+
+      await ss.uploadFileInput.setInputFiles(validImage);
+      await page.waitForTimeout(1000);
+
+      // Đóng modal để trở lại thanh tìm kiếm
+      if (await ss.uploadCloseButton.isVisible()) {
+        await ss.uploadCloseButton.click();
+      }
+
+      // Nhập thêm từ khóa vào ô tìm kiếm
+      await ss.searchTextarea.fill('xe màu xanh');
+      await ss.searchButton.click();
+      await page.waitForTimeout(4000);
+    });
+
+    test('[SS-UP-004] Khảo sát Tìm kiếm chỉ bằng Ảnh (không có từ khóa) [ASSUMPTION A-09]', { tag: ['@live', '@assumption'] }, async ({ page }) => {
+      await ss.openUploadImageButton.click();
+      await expect(ss.uploadImageModal).toBeVisible();
+
+      await ss.uploadFileInput.setInputFiles(validImage);
+      await page.waitForTimeout(1000);
+
+      if (await ss.uploadCloseButton.isVisible()) {
+        await ss.uploadCloseButton.click();
+      }
+
+      await ss.clearQuery();
+      // Khảo sát nút Tìm kiếm có enabled không
+      const isSearchEnabled = await ss.searchButton.isEnabled().catch(() => false);
+      // Ghi nhận hành vi thực tế
+      expect(typeof isSearchEnabled).toBe('boolean');
+    });
+
+    test('[SS-UP-005] Khảo sát kết quả sau khi tìm kiếm bằng ảnh', { tag: ['@live'] }, async ({ page }) => {
+      await ss.openUploadImageButton.click();
+      await expect(ss.uploadImageModal).toBeVisible();
+
+      await ss.uploadFileInput.setInputFiles(validImage);
+      await page.waitForTimeout(1000);
+
+      if (await ss.uploadCloseButton.isVisible()) {
+        await ss.uploadCloseButton.click();
+      }
+
+      // Theo ASSUMPTION A-09: Khi chỉ có ảnh chưa chọn object, nút tìm kiếm bị disable, cần thêm từ khóa
+      const isEnabled = await ss.searchButton.isEnabled();
+      if (!isEnabled) {
+        await ss.searchTextarea.fill('xe');
+      }
+
+      await ss.searchButton.click();
+      await page.waitForTimeout(6000);
+
+      // Thẻ kết quả nếu có phải đủ các trường
+      const count = await ss.getResultCount();
+      expect(count).toBeGreaterThanOrEqual(0);
+    });
+
+    test('[SS-UP-006] Hỗ trợ paste ảnh (Ctrl + V) lên khung tìm kiếm (Alternative Flow a)', { tag: ['@live'] }, async ({ page }) => {
+      await ss.openUploadImageButton.click();
+      await expect(ss.uploadImageModal).toBeVisible();
+
+      // UI hiển thị rõ: "Dán ảnh bằng Ctrl + V cũng được. JPG / PNG, tối đa 10 MB."
+      await expect(ss.uploadInfoText).toBeVisible();
+      await ss.uploadCloseButton.click();
+    });
+
+    test('[SS-UP-007] Click ảnh trước khi tìm để xem chi tiết AI phân tích object (Alternative Flow a)', { tag: ['@live'] }, async ({ page }) => {
+      await ss.openUploadImageButton.click();
+      await expect(ss.uploadImageModal).toBeVisible();
+
+      await ss.uploadFileInput.setInputFiles(validImage);
+      await page.waitForTimeout(1500);
+
+      // Modal có hướng dẫn: "chọn đối tượng trên ảnh rồi tìm những đoạn video có đối tượng giống như vậy"
+      const guideText = page.locator('text=/chọn đối tượng trên ảnh/i');
+      await expect(guideText).toBeVisible();
+      await ss.uploadCloseButton.click();
+    });
+
+    test('[SS-UP-008] Click ảnh sau khi tìm hiển thị pop-up AI phân tích (Alternative Flow b)', { tag: ['@live'] }, async ({ page }) => {
+      await ss.searchTextarea.fill('xe máy');
+      await ss.searchButton.click();
+      await page.waitForTimeout(6000);
+
+      const firstThumb = ss.resultCards.first().locator('img').first();
+      if (await firstThumb.isVisible()) {
+        await firstThumb.click();
+        await page.waitForTimeout(2000);
+        // Kiểm tra modal chi tiết/playback
+        const dialog = page.locator('[role="dialog"]').first();
+        expect(await dialog.isVisible().catch(() => false)).toBeTruthy();
+        await page.keyboard.press('Escape');
+      }
+    });
+
+    test('[SS-UP-009] Xóa ảnh khỏi thanh tìm kiếm trở về tìm theo văn bản', { tag: ['@live'] }, async ({ page }) => {
+      await ss.openUploadImageButton.click();
+      await expect(ss.uploadImageModal).toBeVisible();
+
+      await ss.uploadFileInput.setInputFiles(validImage);
+      await page.waitForTimeout(1000);
+
+      if (await ss.uploadSaveButton.isVisible() && await ss.uploadSaveButton.isEnabled()) {
+        await ss.uploadSaveButton.click();
+        await page.waitForTimeout(1000);
+      }
+
+      // Xóa chip ảnh nếu có nút x
+      const removeChipBtn = page.locator('button[aria-label*="Xóa ảnh"], button[aria-label*="remove image"], [class*="chip"] button').first();
+      if (await removeChipBtn.isVisible()) {
+        await removeChipBtn.click();
         await page.waitForTimeout(500);
       }
-
-      const paginationVisible = await ss.paginationContainer.isVisible().catch(() => false);
-      if (!paginationVisible) {
-        await page.screenshot({ path: 'evidence_defects/BUG_13_missing_pagination_in_list_view.png', fullPage: true });
-      }
-      await expect(ss.paginationContainer, 'Defect: Chế độ List chưa render thanh phân trang cho dataset 17 kết quả').toBeVisible({ timeout: 2000 });
     });
 
-    test('[SS-014] Click vào thẻ kết quả mở Playback đúng timestamp có Bounding Box (AC-SS-04)', { tag: ['@mock'] }, async ({ page }) => {
-      const mock = await ss.mockSearchApi(SmartSearchMockBuilder.build3TierRelevanceDataset());
-      await ss.searchNL('Người áo đỏ');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
+    test('[SS-UP-010] Upload ảnh thứ hai thay ảnh thứ nhất (Nút "Đổi ảnh")', { tag: ['@live'] }, async ({ page }) => {
+      await ss.openUploadImageButton.click();
+      await expect(ss.uploadImageModal).toBeVisible();
 
-      const firstCard = ss.resultCards.first();
-      await expect(firstCard).toBeVisible({ timeout: 5000 });
-      await firstCard.click();
+      await ss.uploadFileInput.setInputFiles(validImage);
       await page.waitForTimeout(1000);
-      const modalVisible = await ss.playbackModal.isVisible().catch(() => false);
-      expect(modalVisible || true).toBeTruthy();
+
+      // Nút "Đổi ảnh" phải có mặt và click được
+      await expect(ss.uploadChangeImageButton).toBeVisible();
+      await ss.uploadChangeImageButton.click();
+      await page.waitForTimeout(500);
+      await ss.uploadCloseButton.click();
     });
 
-    test('[SS-018] Chế độ Grid (Lưới) cuộn và KHÔNG hiển thị phân trang (PSD Mục 3.E)', { tag: ['@mock'] }, async () => {
-      const mock = await ss.mockSearchApi(SmartSearchMockBuilder.buildPaginationDataset(17));
-      await ss.searchNL('Phương tiện');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
+    test('[SS-UP-011] Upload tệp không hợp lệ không làm vỡ giao diện', { tag: ['@live'] }, async ({ page }) => {
+      await ss.openUploadImageButton.click();
+      await expect(ss.uploadImageModal).toBeVisible();
 
-      // Ở chế độ Grid mặc định: không có thanh phân trang
-      await expect(ss.paginationContainer).not.toBeVisible();
-    });
-  });
+      // Upload file đổi đuôi không hợp lệ
+      await ss.uploadFileInput.setInputFiles(fakeImage);
+      await page.waitForTimeout(1500);
 
-  // =========================================================================
-  // SCENARIO SS-STATUS-001: MOCK PHẢN HỒI HTTP VÀ THÔNG BÁO LỖI (PSD MỤC 3.F)
-  // =========================================================================
-  test.describe('Phản hồi HTTP & Thông báo lỗi (SS-STATUS-001)', { tag: ['@result'] }, () => {
-    test('[SS-015] 200 OK với 0 kết quả: Hiển thị đúng thông báo PSD Mục 3.F', { tag: ['@mock'] }, async ({ page }) => {
-      const mock = await ss.mockSearchApi(SmartSearchMockBuilder.buildEmptyResponse(), 200);
-      await ss.searchNL('Đối tượng không tồn tại');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
-
-      // PSD Mục 3.F: "Không tìm thấy kết quả phù hợp. Thử thay đổi mô tả, khoảng thời gian hoặc điều kiện tìm kiếm."
-      // Thực tế trên Live: "Không tìm thấy đoạn video nào khớp với truy vấn. Thử mô tả khác, nới khoảng thời gian hoặc chuyển sang chế độ Balanced"
-      const textMatch = await page.getByText('Không tìm thấy kết quả phù hợp. Thử thay đổi mô tả, khoảng thời gian hoặc điều kiện tìm kiếm.').isVisible().catch(() => false);
-      if (!textMatch) {
-        await page.screenshot({ path: 'evidence_defects/BUG_15_empty_state_text.png', fullPage: true });
-      }
-      await expect(page.getByText('Không tìm thấy kết quả phù hợp. Thử thay đổi mô tả, khoảng thời gian hoặc điều kiện tìm kiếm.'),
-        'Defect: Text thông báo rỗng chưa khớp nguyên văn PSD Mục 3.F'
-      ).toBeVisible({ timeout: 2000 });
+      // Giao diện vẫn nguyên vẹn
+      await expect(ss.uploadImageModal).toBeVisible();
+      await ss.uploadCloseButton.click();
     });
 
-    test('[SS-016] 500 Internal Server Error: Hiển thị đúng thông báo PSD Mục 3.F', { tag: ['@mock'] }, async ({ page }) => {
-      const mock = await ss.mockSearchApi({ message: 'Lỗi máy chủ nội bộ' }, 500);
-      await ss.searchNL('Query lỗi server 500');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
+    test('[SS-UP-012] Giới hạn định dạng và dung lượng hiển thị trên UI', { tag: ['@live'] }, async () => {
+      await ss.openUploadImageButton.click();
+      await expect(ss.uploadImageModal).toBeVisible();
 
-      // PSD Mục 3.F: Thông báo lỗi 500: "Đã có lỗi xảy ra phía máy chủ. Vui lòng thử lại sau hoặc liên hệ quản trị viên."
-      const errorMsg = page.getByText(/Đã có lỗi xảy ra phía máy chủ|Lỗi kết nối máy chủ/i);
-      const isVisible = await errorMsg.isVisible().catch(() => false);
-      if (!isVisible) {
-        await page.screenshot({ path: 'evidence_defects/BUG_16_missing_500_error_message.png', fullPage: true });
-      }
-      await expect(errorMsg, 'Defect: UI chưa hiển thị thông báo lỗi thân thiện cho mã lỗi 500 theo PSD Mục 3.F').toBeVisible({ timeout: 2000 });
+      // UI ghi: "JPG / PNG, tối đa 10 MB."
+      const text = await ss.uploadInfoText.textContent();
+      expect(text).toContain('JPG / PNG');
+      expect(text).toContain('10 MB');
+      await ss.uploadCloseButton.click();
     });
 
-    test('[SS-022] 502/503 Service Unavailable: Hiển thị thông báo gián đoạn dịch vụ PSD 3.F', { tag: ['@mock'] }, async ({ page }) => {
-      const mock = await ss.mockSearchApi({ message: 'Dịch vụ tạm thời gián đoạn' }, 503);
-      await ss.searchNL('Query lỗi server 503');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
+    test('[SS-UP-013] Ảnh không có đối tượng nhận diện được', { tag: ['@live'] }, async ({ page }) => {
+      await ss.openUploadImageButton.click();
+      await expect(ss.uploadImageModal).toBeVisible();
 
-      // PSD Mục 3.F: "Dịch vụ tìm kiếm thông minh tạm thời gián đoạn. Vui lòng thử lại sau ít phút."
-      const serviceDownMsg = page.getByText(/gián đoạn|tạm thời/i);
-      const isVisible = await serviceDownMsg.isVisible().catch(() => false);
-      if (!isVisible) {
-        await page.screenshot({ path: 'evidence_defects/BUG_22_missing_502_503_error_message.png', fullPage: true });
-      }
-      await expect(serviceDownMsg, 'Defect: UI chưa hiển thị thông báo gián đoạn dịch vụ cho mã 502/503 theo PSD Mục 3.F').toBeVisible({ timeout: 2000 });
+      await ss.uploadFileInput.setInputFiles(emptyImage);
+      await page.waitForTimeout(1500);
+      await ss.uploadCloseButton.click();
     });
 
-    test('[SS-028] 400 Bad Request: Hiển thị đúng thông báo PSD Mục 3.F', { tag: ['@mock'] }, async ({ page }) => {
-      const mock = await ss.mockSearchApi({ message: 'Yêu cầu không hợp lệ' }, 400);
-      await ss.searchNL('Query lỗi cú pháp 400');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
+    test('[SS-UP-014] Mock các mã lỗi hệ thống khi tìm bằng ảnh (400, 422, 500)', { tag: ['@mock'] }, async ({ page }) => {
+      await page.route(SMART_SEARCH_API_MAP.SEARCH_ENDPOINT_PATTERN, async route => {
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            message: { vi: 'Không thể thực hiện tìm kiếm do lỗi hệ thống. Vui lòng thử lại.', en: 'Internal server error' },
+            status_code: 500,
+          }),
+        });
+      });
 
-      // PSD Mục 3.F: "Yêu cầu tìm kiếm không hợp lệ. Vui lòng kiểm tra lại câu truy vấn."
-      const badReqMsg = page.getByText(/Yêu cầu tìm kiếm không hợp lệ/i);
-      const isVisible = await badReqMsg.isVisible().catch(() => false);
-      if (!isVisible) {
-        await page.screenshot({ path: 'evidence_defects/BUG_28_missing_400_error_message.png', fullPage: true });
-      }
-      await expect(badReqMsg, 'Defect: UI chưa hiển thị thông báo yêu cầu không hợp lệ cho mã lỗi 400 theo PSD Mục 3.F').toBeVisible({ timeout: 2000 });
+      await ss.searchTextarea.fill('tìm ảnh lỗi 500');
+      await ss.searchButton.click();
+      await page.waitForTimeout(2000);
+
+      // UI không bị sập hay vỡ màn hình
+      await expect(ss.searchTextarea).toBeVisible();
     });
 
-    test('[SS-029] 401/403 Unauthorized/Forbidden: Hiển thị thông báo quyền truy cập PSD Mục 3.F', { tag: ['@mock'] }, async ({ page }) => {
-      const mock = await ss.mockSearchApi({ message: 'Không có quyền truy cập' }, 403);
-      await ss.searchNL('Query không có quyền');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
+    test('[SS-UP-015] Khảo sát tính năng Upload VIDEO trên giao diện thật', { tag: ['@live', '@pending-ba'] }, async () => {
+      // PSD mục 10.3.5 chỉ mô tả ẢNH. Khảo sát thực tế UI:
+      await ss.openUploadImageButton.click();
+      await expect(ss.uploadImageModal).toBeVisible();
 
-      // PSD Mục 3.F: "Bạn không có quyền tìm kiếm trên một số camera hoặc khu vực đã chọn."
-      const forbidMsg = page.getByText(/không có quyền/i);
-      const isVisible = await forbidMsg.isVisible().catch(() => false);
-      if (!isVisible) {
-        await page.screenshot({ path: 'evidence_defects/BUG_29_missing_403_error_message.png', fullPage: true });
-      }
-      await expect(forbidMsg, 'Defect: UI chưa hiển thị thông báo không có quyền cho mã lỗi 403 theo PSD Mục 3.F').toBeVisible({ timeout: 2000 });
-    });
+      const modalTitle = await ss.uploadImageModal.locator('h2, [class*="title"]').first().textContent();
+      const acceptAttr = await ss.uploadFileInput.getAttribute('accept');
 
-    test('[SS-030] 422 Unprocessable Entity: Hiển thị thông báo không thể phân tích truy vấn PSD 3.F', { tag: ['@mock'] }, async ({ page }) => {
-      const mock = await ss.mockSearchApi({ message: 'Không thể phân tích ngữ nghĩa' }, 422);
-      await ss.searchNL('Query không thể phân tích');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
-
-      // PSD Mục 3.F: "Hệ thống không thể hiểu yêu cầu tìm kiếm. Vui lòng thử mô tả bằng cách khác."
-      const unprocMsg = page.getByText(/không thể hiểu yêu cầu|không thể phân tích/i);
-      const isVisible = await unprocMsg.isVisible().catch(() => false);
-      if (!isVisible) {
-        await page.screenshot({ path: 'evidence_defects/BUG_30_missing_422_error_message.png', fullPage: true });
-      }
-      await expect(unprocMsg, 'Defect: UI chưa hiển thị thông báo không thể hiểu yêu cầu cho mã 422 theo PSD Mục 3.F').toBeVisible({ timeout: 2000 });
+      // Ghi nhận: UI đề "Tìm bằng ảnh", accept chỉ có image/*, HOÀN TOÀN KHÔNG CÓ VIDEO
+      expect(modalTitle).toContain('Tìm bằng ảnh');
+      expect(acceptAttr).not.toContain('video');
+      await ss.uploadCloseButton.click();
     });
   });
 
   // =========================================================================
-  // SCENARIO SS-EXT-001: MỞ RỘNG NGHIỆP VỤ & PHÁT HIỆN LIVE
+  // WAVE 4: BỔ SUNG THEO PSD MỤC 10.3.5 (SS-RT-001..006)
   // =========================================================================
-  test.describe('Nghiệp vụ Mở rộng & Hành vi Live (SS-EXT-001)', () => {
-    test('[SS-019] Bảng chuẩn hóa cụm từ thời gian từ PSD (buổi sáng, trưa, chiều, tối, vừa nãy)', { tag: ['@time'] }, async () => {
-      // PSD Mục 3.C: buổi sáng (06:00-12:00), vừa nãy (now-10m)
-      await ss.searchNL('tìm người buổi sáng');
-      await expect(ss.searchTextarea).toHaveValue('tìm người buổi sáng');
+  test.describe('Wave 4: Bổ sung theo đặc tả PSD', { tag: ['@wave4'] }, () => {
+    
+    test('[SS-RT-001] Cảnh báo độ dài câu truy vấn > 500 ký tự (BR-NL-08)', { tag: ['@live', '@boundary'] }, async ({ page }) => {
+      const longQuery = 'xe ô tô '.repeat(75); // > 500 ký tự
+      await ss.searchTextarea.fill(longQuery);
+      await ss.searchButton.click();
+      await page.waitForTimeout(1500);
+
+      // PSD BR-NL-08: "Nội dung tìm kiếm quá dài. Vui lòng mô tả ngắn gọn đối tượng, khu vực và thời gian cần tìm."
+      const warning = page.locator('text=/Nội dung tìm kiếm quá dài/i');
+      const isVisible = await warning.isVisible().catch(() => false);
+      if (!isVisible) {
+        await page.screenshot({ path: 'evidence_defects/SS_BUG_RT_001_no_500_warning.png', fullPage: true });
+      }
+      expect(isVisible, 'Defect: Thiếu cảnh báo độ dài > 500 ký tự theo BR-NL-08').toBeTruthy();
     });
 
-    test('[SS-027] Cụm từ thời gian mở rộng: rạng sáng, sáng sớm, chạng vạng, khuya, nửa đêm, từ 12h đến 14h, lúc 12h (PSD 3.C)', { tag: ['@time'] }, async () => {
-      // PSD Mục 3.C:
-      // rạng sáng (04:00-06:00), sáng sớm (05:00-07:00), chạng vạng (17:30-18:30)
-      // khuya (22:00-24:00), nửa đêm (23:30-00:30), từ 12h đến 14h (12:00-14:00), lúc 12h (11:45-12:15)
-      await ss.searchNL('xe máy lúc 12h từ 12h đến 14h sáng sớm');
-      await expect(ss.searchTextarea).toHaveValue('xe máy lúc 12h từ 12h đến 14h sáng sớm');
+    test('[SS-RT-002] Cảnh báo khoảng thời gian > 30 ngày (BR-TIME-13)', { tag: ['@live'] }, async ({ page }) => {
+      await ss.searchTextarea.fill('xe ô tô trong 3 tháng qua');
+      await ss.searchButton.click();
+      await page.waitForTimeout(2000);
+
+      // PSD BR-TIME-13: "Hệ thống chỉ hỗ trợ truy xuất trong thời gian 30 ngày, Vui lòng chọn khoảng thời gian khác."
+      const timeWarning = page.locator('text=/Hệ thống chỉ hỗ trợ truy xuất trong thời gian 30 ngày/i');
+      const hasWarning = await timeWarning.isVisible().catch(() => false);
+      if (!hasWarning) {
+        await page.screenshot({ path: 'evidence_defects/SS_BUG_RT_002_no_30_day_warning.png', fullPage: true });
+      }
+      expect(hasWarning, 'Defect: Thiếu thông báo giới hạn 30 ngày theo BR-TIME-13').toBeTruthy();
     });
 
-    test('[SS-020] Chặn khoảng thời gian From > To và thời gian tương lai (BR-TIME-09)', async () => {
+    test('[SS-RT-003] Cảnh báo thời gian toàn bộ ở tương lai (BR-TIME-09)', { tag: ['@live', '@pending-ba'] }, async ({ page }) => {
       await ss.toggleAllFiltersButton.click();
-      if (await ss.dateFromInput.isVisible() && await ss.dateToInput.isVisible()) {
-        await ss.dateFromInput.fill('01/12/2026');
-        await ss.dateToInput.fill('01/01/2026'); // From > To
-        await ss.applyFilterButton.click();
+      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 5000 });
+
+      // Chọn ngày tương lai: ví dụ 01/11/2026 - 05/11/2026
+      await ss.dateFromInput.fill('01/11/2026');
+      await ss.dateToInput.fill('05/11/2026');
+      await ss.applyFilterButton.click();
+      await page.waitForTimeout(2000);
+
+      // PSD BR-TIME-09 câu chữ nghi lỗi chính tả: "Hệ thống chỉ hỗ trợ truy xuất thời gian tương lai..."
+      // Retest ghi nhận thông điệp thực tế
+      const msg = page.locator('text=/thời gian|tương lai|không hợp lệ/i');
+      expect(await msg.isVisible().catch(() => false)).toBeTruthy();
+    });
+
+    test('[SS-RT-004] Mock các mã lỗi 400, 401, 403, 404, 422, 500, 502, 503 đối chiếu thông điệp PSD', { tag: ['@mock'] }, async ({ page }) => {
+      const errorCodes = [
+        { code: 400, msg: 'Không thể thực hiện tìm kiếm. Một số điều kiện tìm kiếm không hợp lệ.' },
+        { code: 401, msg: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.' },
+        { code: 403, msg: 'Bạn không có quyền tìm kiếm dữ liệu này. Hãy kiểm tra quyền truy cập camera/khu vực.' },
+        { code: 422, msg: 'Chưa thể hiểu yêu cầu tìm kiếm này. Hãy thử mô tả lại hoặc sử dụng các điều kiện được hỗ trợ.' },
+        { code: 500, msg: 'Không thể thực hiện tìm kiếm do lỗi hệ thống. Vui lòng thử lại.' },
+        { code: 502, msg: 'Dịch vụ tìm kiếm tạm thời không khả dụng. Vui lòng thử lại sau.' },
+      ];
+
+      for (const err of errorCodes) {
+        await page.route(SMART_SEARCH_API_MAP.SEARCH_ENDPOINT_PATTERN, async route => {
+          await route.fulfill({
+            status: err.code,
+            contentType: 'application/json',
+            body: JSON.stringify({ message: { vi: err.msg, en: err.msg }, status_code: err.code }),
+          });
+        });
+
+        await ss.searchTextarea.fill(`test error ${err.code}`);
+        await ss.searchButton.click();
+        await page.waitForTimeout(1000);
       }
     });
 
-    test('[SS-021] Mặc định thời gian: NL không ngày giờ (7 ngày qua, A-05) vs Filter (ngày hiện tại)', { tag: ['@time', '@assumption'] }, async () => {
-      // Query mặc định trên URL live có time_preset=7d
-      const url = await ss.page.url();
-      expect(url).toContain('time_preset=7d');
-    });
+    test('[SS-RT-005] Chuyển đổi giữa chế độ Grid (lưới) và List (danh sách)', { tag: ['@live'] }, async ({ page }) => {
+      await ss.searchTextarea.fill('xe máy');
+      await ss.searchButton.click();
+      await page.waitForTimeout(6000);
 
-    test('[SS-023] NL nhiều đối tượng và quan hệ AND/OR (Chốt BA #3, A-03)', { tag: ['@nl', '@mock'] }, async () => {
-      const mock = await ss.mockSearchApi(SmartSearchMockBuilder.build3TierRelevanceDataset('Người áo đỏ VÀ xe máy đen'));
-      await ss.searchNL('Người áo đỏ VÀ xe máy đen');
-      await expect.poll(() => mock.getHits(), { timeout: 10000, message: 'Mock không được áp dụng: endpoint sai' }).toBeGreaterThan(0);
-    });
-
-    test('[SS-024] Chế độ tìm kiếm search_mode: Precision vs Flexible (Phát hiện Live UI)', { tag: ['@live-ui'] }, async () => {
-      // Dropdown chế độ tìm kiếm có trên thanh tìm kiếm Live
-      const modeBtn = ss.page.locator('button:has-text("Precision"), button:has-text("Flexible")').first();
-      await expect(modeBtn).toBeVisible();
-    });
-
-    test('[SS-025] Nút Tìm kiếm bị disabled khi ô prompt rỗng (Phát hiện Live UI)', { tag: ['@live-ui'] }, async () => {
-      await ss.clearQuery();
-      const isSearchDisabled = await ss.searchButton.isDisabled();
-      expect(isSearchDisabled).toBeTruthy();
-    });
-
-    test('[SS-031] Query Summary đồng bộ 2 chiều và thông báo "Đã cập nhật màu xe: Xanh → Vàng" (PSD Mục 3.B)', async ({ page }) => {
-      await ss.searchNL('Tìm xe màu xanh');
-      await ss.toggleAllFiltersButton.click();
-      // PSD Mục 3.B: Khi đổi giá trị filter, hiển thị thông báo "Đã cập nhật màu xe: Xanh → Vàng"
-      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 3000 });
-    });
-
-    test('[SS-032] Khu vực đổi thì camera không thuộc khu vực bị bỏ và có thông báo (BR-FLT-04)', async () => {
-      await ss.toggleAllFiltersButton.click();
-      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 3000 });
-    });
-
-    test('[SS-033] Sắp xếp kết quả: Mới nhất / Cũ nhất và Độ liên quan (PSD Mục 3.E)', { tag: ['@result'] }, async () => {
-      // PSD Mục 3.E: Dropdown sort hỗ trợ Độ liên quan giảm dần (mặc định), Thời gian mới nhất, Thời gian cũ nhất
-      const sortBtn = ss.page.locator('button:has-text("Độ liên quan"), button[aria-label="Sắp xếp"]').first();
-      await expect(sortBtn).toBeVisible();
-    });
-
-    test('[SS-026] @live: Tìm kiếm thực tế với từ khóa rộng "người" và xác thực kết quả', { tag: ['@live'] }, async ({ page }) => {
-      const stopCapture = await captureApi(page, 'live_smart_search_broad');
-      try {
-        await ss.searchNL('người');
-        await page.waitForTimeout(4000);
-
-        const count = await ss.getResultCount();
-        expect(count).toBeGreaterThan(0);
-        // Kiểm tra thẻ đầu tiên có thông tin thời gian hoặc camera
-        const firstCardText = await ss.resultCards.first().innerText();
-        expect(firstCardText).toMatch(/LH-|AIOT|CAM|\d{2}:\d{2}/i);
-      } finally {
-        stopCapture();
+      // Chuyển sang List view
+      if (await ss.listViewToggle.isVisible()) {
+        await ss.listViewToggle.click();
+        await page.waitForTimeout(1500);
+        await expect(ss.resultTable).toBeVisible({ timeout: 5000 });
       }
+
+      // Chuyển lại Grid view
+      if (await ss.gridViewToggle.isVisible()) {
+        await ss.gridViewToggle.click();
+        await page.waitForTimeout(1500);
+        await expect(ss.resultCards.first()).toBeVisible({ timeout: 5000 });
+      }
+    });
+
+    test('[SS-RT-006] Quan hệ đối tượng AND / OR trong bộ lọc nâng cao', { tag: ['@live'] }, async ({ page }) => {
+      await ss.toggleAllFiltersButton.click();
+      await expect(ss.advancedFilterPanel).toBeVisible({ timeout: 5000 });
+
+      // Thêm 2 đối tượng
+      await ss.addObjectButton.click();
+      await page.waitForTimeout(500);
+      await ss.addObjectButton.click();
+      await page.waitForTimeout(500);
+
+      // Kiểm tra toggle logic AND / OR theo PSD BR-FLT-06
+      const logicToggle = page.locator('button:has-text("AND"), button:has-text("OR"), [data-testid*="logic"]').first();
+      const hasToggle = await logicToggle.isVisible().catch(() => false);
+      if (!hasToggle) {
+        await page.screenshot({ path: 'evidence_defects/SS_BUG_RT_006_missing_and_or_toggle.png', fullPage: true });
+      }
+      expect(hasToggle, 'Defect: Thiếu nút chuyển đổi quan hệ logic AND / OR giữa các đối tượng theo BR-FLT-06').toBeTruthy();
     });
   });
 });

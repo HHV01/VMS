@@ -15,7 +15,7 @@ const baseUrl = () => requireEnv('VMS_BASE_URL').replace(/\/+$/, '');
 export class VmsSmartSearchPage {
   readonly page: Page;
 
-  // ===== 1. THANH TÌM KIẾM TỰ NHIÊN (NL SEARCH) =====
+  // ===== 1. THANH TÌM KIẾM TỰ NHIÊN (NL SEARCH) & UPLOAD ẢNH =====
   readonly searchTextarea: Locator;
   readonly searchButton: Locator;
   readonly clearSearchButton: Locator;
@@ -23,6 +23,16 @@ export class VmsSmartSearchPage {
   readonly unsupportedWarningBanner: Locator;
   readonly aiParsedChipsContainer: Locator;
   readonly aiParsedChips: Locator;
+
+  // 1.1 Upload Image
+  readonly openUploadImageButton: Locator;
+  readonly uploadImageModal: Locator;
+  readonly uploadFileInput: Locator;
+  readonly uploadDropzone: Locator;
+  readonly uploadSaveButton: Locator;
+  readonly uploadChangeImageButton: Locator;
+  readonly uploadCloseButton: Locator;
+  readonly uploadInfoText: Locator;
 
   // ===== 2. BỘ LỌC NÂNG CAO (ADVANCED FILTER PANEL) =====
   readonly advancedFilterPanel: Locator;
@@ -40,6 +50,8 @@ export class VmsSmartSearchPage {
   readonly timePresetYesterday: Locator;
   readonly timePreset24h: Locator;
   readonly timePreset7Days: Locator;
+  readonly timePreset14Days: Locator;
+  readonly timePreset30Days: Locator;
   readonly dateFromInput: Locator;
   readonly dateToInput: Locator;
   readonly allDayCheckbox: Locator;
@@ -83,18 +95,28 @@ export class VmsSmartSearchPage {
 
     // 1. NL Search
     this.searchTextarea = page.locator('textarea[name="prompt"]').or(page.getByRole('textbox', { name: /mô tả điều cần tìm|tìm kiếm|ví dụ/i })).first();
-    this.searchButton = page.getByRole('button', { name: /^tìm kiếm$/i }).or(page.locator('button[aria-label="Tìm kiếm"]')).first();
+    this.searchButton = page.getByRole('button', { name: /^tìm kiếm$/i }).or(page.locator('button[aria-label="Tìm kiếm"], button:has-text("Tìm kiếm")')).first();
     this.clearSearchButton = page.getByRole('button', { name: /xóa|clear/i }).or(page.locator('[data-testid="clear-search"]')).first();
     this.queryLengthWarning = page.getByText(/Nội dung tìm kiếm quá dài/i).or(page.locator('[data-testid="query-length-warning"]')).first();
     this.unsupportedWarningBanner = page.getByText(/Một số điều kiện chưa được hỗ trợ/i).or(page.locator('[data-testid="unsupported-warning"]')).first();
     this.aiParsedChipsContainer = page.locator('[data-testid="ai-parsed-chips"], [class*="ai-chips"], [class*="applied-conditions"]');
     this.aiParsedChips = page.locator('[data-testid="ai-chip"], [class*="chip"], [class*="tag"]').filter({ has: page.locator('button, [class*="close"], [class*="remove"]') });
 
+    // 1.1 Upload Image
+    this.openUploadImageButton = page.locator('button[aria-label="Thêm ảnh"]').first();
+    this.uploadImageModal = page.locator('[role="dialog"]').filter({ hasText: /Tìm bằng ảnh/i }).first();
+    this.uploadFileInput = page.locator('input[type="file"]').first();
+    this.uploadDropzone = this.uploadImageModal.locator('text=/Chọn ảnh hoặc kéo thả vào đây/i').first();
+    this.uploadSaveButton = this.uploadImageModal.getByRole('button', { name: /lưu/i }).first();
+    this.uploadChangeImageButton = this.uploadImageModal.getByRole('button', { name: /đổi ảnh/i }).first();
+    this.uploadCloseButton = this.uploadImageModal.locator('button:has-text("✕"), button[aria-label="Close"], button.absolute').first();
+    this.uploadInfoText = this.uploadImageModal.getByText(/JPG \/ PNG, tối đa 10 MB/i).first();
+
     // 2. Advanced Filter
-    this.advancedFilterPanel = page.locator('[data-testid="advanced-filter-panel"], aside, [class*="filter-panel"]').first();
-    this.toggleAllFiltersButton = page.getByRole('button', { name: /bộ lọc nâng cao|mở rộng tất cả|thu hẹp tất cả|collapse|expand/i }).first();
-    this.resetButton = page.getByRole('button', { name: /đặt lại|reset/i }).first();
-    this.applyFilterButton = page.getByRole('button', { name: /áp dụng bộ lọc|áp dụng|apply/i }).first();
+    this.advancedFilterPanel = page.locator('[data-testid="advanced-filter-panel"], aside, [class*="filter-panel"], div:has(h2:has-text("Bộ lọc nâng cao"))').first();
+    this.toggleAllFiltersButton = page.getByRole('button', { name: /bộ lọc nâng cao/i }).or(page.locator('button:has-text("Bộ lọc nâng cao")')).first();
+    this.resetButton = page.getByRole('button', { name: /đặt lại|reset/i }).or(page.locator('button:has-text("Đặt lại")')).first();
+    this.applyFilterButton = page.getByRole('button', { name: /áp dụng bộ lọc|áp dụng/i }).or(page.locator('button:has-text("Áp dụng bộ lọc")')).first();
 
     // 2.1 Hierarchy
     this.layoutSelector = page.getByRole('combobox', { name: /bố cục|layout/i }).or(page.locator('[data-testid="layout-select"]')).first();
@@ -110,35 +132,35 @@ export class VmsSmartSearchPage {
     this.timePreset30Days = page.locator('button:has-text("30 ngày gần nhất")').first();
     this.dateFromInput = page.locator('input[placeholder="Từ"]').first();
     this.dateToInput = page.locator('input[placeholder="Đến"]').first();
-    this.allDayCheckbox = page.getByRole('checkbox', { name: /cả ngày|all day/i }).or(page.locator('[data-testid="all-day-checkbox"]')).first();
+    this.allDayCheckbox = page.getByRole('checkbox', { name: /cả ngày|all day/i }).or(page.locator('input[type="checkbox"]')).first();
     this.timeValidationMessage = page.getByText(/Hệ thống chỉ hỗ trợ truy xuất trong thời gian 30 ngày/i).first();
 
     // 2.3 Object Attributes
-    this.addObjectButton = page.getByRole('button', { name: /thêm đối tượng|\+ đối tượng/i }).first();
+    this.addObjectButton = page.getByRole('button', { name: /thêm đối tượng|\+ đối tượng/i }).or(page.locator('button:has-text("+ Thêm đối tượng")')).first();
     this.objectTypeDropdown = page.getByRole('combobox', { name: /loại đối tượng|đối tượng/i }).first();
     this.objectColorDropdown = page.getByRole('combobox', { name: /màu sắc|màu/i }).first();
     this.objectLogicToggle = page.getByRole('button', { name: /AND|OR/i }).first();
 
     // 2.4 Relevance Slider & Mode Controls
-    this.relevanceSection = page.locator('[data-testid="relevance-filter-section"], :has-text("Độ liên quan")').first();
+    this.relevanceSection = page.locator('text=Độ liên quan').locator('..').first();
     this.relevanceBadge = this.relevanceSection.locator('[data-testid="badge"], [class*="badge"]').first();
-    this.relevanceRangeLabel = page.locator('[data-testid="relevance-range-label"]').or(page.locator('text=/\\d+%\\s*–\\s*\\d+%/')).first();
-    this.relevanceSliderTrack = page.locator('[role="slider"]').or(page.locator('[class*="slider"]')).first();
+    this.relevanceRangeLabel = page.locator('text=/\\d+%\\s*–\\s*\\d+%/').first();
+    this.relevanceSliderTrack = page.locator('[role="slider"]').first();
     this.relevanceMinHandle = page.locator('[role="slider"]').first();
     this.relevanceMaxHandle = page.locator('[role="slider"]').nth(1);
 
     // 3. Results Area
-    this.resultsSummaryText = page.locator('text=/\\d+\\s*kết quả\\s*·\\s*\\d+\\s*camera\\s*·\\s*\\d+\\s*khu vực/i').or(page.locator('[data-testid="results-summary"]')).first();
-    this.sortDropdown = page.getByRole('button', { name: /sắp xếp/i }).or(page.locator('button[aria-label="Sắp xếp"]')).first();
-    this.gridViewToggle = page.getByRole('button', { name: /grid|lưới/i }).or(page.locator('[data-testid="view-grid"]')).first();
-    this.listViewToggle = page.getByRole('button', { name: /list|danh sách|bảng/i }).or(page.locator('[data-testid="view-list"]')).first();
+    this.resultsSummaryText = page.locator('text=/\\d+\\s*(?:kết quả|đoạn video)/i').first();
+    this.sortDropdown = page.locator('button[aria-label="Sắp xếp"]').or(page.getByRole('button', { name: /sắp xếp|độ liên quan/i })).first();
+    this.gridViewToggle = page.locator('button:has(svg.lucide-grid-2x2), button:has(svg.lucide-layout-grid), button[aria-label*="Lưới"], button[aria-label*="grid"]').first();
+    this.listViewToggle = page.locator('button:has(svg.lucide-list), button[aria-label*="Danh sách"], button[aria-label*="list"]').first();
     this.resultCards = page.locator('[data-slot="card"], [class*="card"]').filter({ has: page.locator('img, video, [class*="thumb"]') });
     this.resultTable = page.getByRole('table').or(page.locator('[data-testid="result-table"]')).first();
     this.emptyStateText = page.getByText(/Không tìm thấy kết quả phù hợp|Không tìm thấy đoạn video nào/i).first();
-    this.loadingIndicator = page.locator('[class*="loading"], [class*="spinner"], [role="progressbar"]');
-    this.paginationContainer = page.locator('[data-testid="pagination"], [class*="pagination"], nav[role="navigation"]');
-    this.nextBatchButton = page.getByRole('button', { name: /trang sau|tiếp|next/i }).first();
-    this.prevBatchButton = page.getByRole('button', { name: /trang trước|trước|prev/i }).first();
+    this.loadingIndicator = page.locator('text=/Đang xếp hạng|Đang phân tích|Đang lục lọi/i');
+    this.paginationContainer = page.locator('div:has(button):has-text("/")').filter({ hasText: /\d+\/\d+/ }).first();
+    this.nextBatchButton = page.locator('button:has(svg.lucide-chevron-right), button:has-text("→")').first();
+    this.prevBatchButton = page.locator('button:has(svg.lucide-chevron-left), button:has-text("←")').first();
 
     // 4. Modal & Playback
     this.playbackModal = page.getByRole('dialog', { name: /chi tiết sự kiện|playback/i }).or(page.locator('[data-testid="playback-modal"], [role="dialog"]')).first();
@@ -151,7 +173,6 @@ export class VmsSmartSearchPage {
   async navigate(url?: string) {
     const target = url || `${baseUrl()}/video-analytic/smart-search?search_mode=precision&time_preset=7d`;
     await this.page.goto(target, { waitUntil: 'domcontentloaded' });
-    await this.page.waitForTimeout(500);
     if (this.page.url().includes('/login')) {
       await this.login(requireEnv('VMS_USERNAME'), requireEnv('VMS_PASSWORD'));
       await this.page.goto(target, { waitUntil: 'domcontentloaded' });

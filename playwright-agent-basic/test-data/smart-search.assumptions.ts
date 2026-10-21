@@ -52,8 +52,39 @@ export const SMART_SEARCH_ASSUMPTIONS = {
   A_06_IGNORE_CONFIDENCE_METRICS: true,
 
   /**
-   * [A-07] Bỏ qua các tính năng ngoài PSD
-   * (Tìm bằng ảnh, tách nút Phân tích, gộp tab Lịch sử / Đã lưu) không viết test.
+   * [A-07] Định dạng và dung lượng Upload Ảnh (Xác nhận từ UI VMS 2.8.0):
+   * Định dạng hỗ trợ: JPG, PNG; dung lượng tối đa: 10 MB.
+   * Giao diện hiển thị: "Chọn ảnh hoặc kéo thả vào đây / Dán ảnh bằng Ctrl + V cũng được. JPG / PNG, tối đa 10 MB."
    */
-  A_07_IGNORE_NON_PSD_FEATURES: true,
+  A_07_UPLOAD_IMAGE_SPECS: {
+    formats: ['jpg', 'png', 'jpeg'],
+    maxSizeMB: 10,
+    supportsPaste: true,
+  },
+
+  /**
+   * [A-08] Upload Video KHÔNG được hỗ trợ
+   * PSD không mô tả và giao diện thật không có ô upload video (input chỉ accept="image/*").
+   * Ghi nhận và chờ BA xác nhận.
+   */
+  A_08_UPLOAD_VIDEO_UNSUPPORTED: true,
+
+  /**
+   * [A-09] Tìm kiếm chỉ bằng Ảnh (không có từ khóa)
+   * Giả định: Cho phép tìm kiếm chỉ bằng ảnh đã chọn đối tượng, nút Tìm kiếm vẫn được kích hoạt.
+   */
+  A_09_IMAGE_ONLY_SEARCH_ALLOWED: true,
+
+  /**
+   * [A-10] Giới hạn số lượng kết quả (Hard limit 200)
+   * Backend API /api/smart_search có limit mặc định = 200 items.
+   */
+  A_10_BACKEND_MAX_LIMIT_200: 200,
+
+  /**
+   * [A-11] Mốc chuẩn hóa thời gian: "khoảng xh" (12:30–12:30)
+   * Nghi vấn lỗi đặc tả trong PSD. Đưa vào câu hỏi BA; không assert cứng mốc này.
+   */
+  A_11_PENDING_BA_TIME_ROUNDING_ERROR: true,
 };
+
