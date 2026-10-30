@@ -37,6 +37,7 @@ export class VmsSmartSearchPage {
   // ===== 2. BỘ LỌC NÂNG CAO (ADVANCED FILTER PANEL) =====
   readonly advancedFilterPanel: Locator;
   readonly toggleAllFiltersButton: Locator;
+  readonly collapseAllFiltersButton: Locator;
   readonly resetButton: Locator;
   readonly applyFilterButton: Locator;
 
@@ -95,7 +96,7 @@ export class VmsSmartSearchPage {
 
     // 1. NL Search
     this.searchTextarea = page.locator('textarea[name="prompt"]').or(page.getByRole('textbox', { name: /mô tả điều cần tìm|tìm kiếm|ví dụ/i })).first();
-    this.searchButton = page.getByRole('button', { name: /^tìm kiếm$/i }).or(page.locator('button[aria-label="Tìm kiếm"], button:has-text("Tìm kiếm")')).first();
+    this.searchButton = page.locator('button').filter({ hasText: /^Tìm kiếm$/i }).last();
     this.clearSearchButton = page.getByRole('button', { name: /xóa|clear/i }).or(page.locator('[data-testid="clear-search"]')).first();
     this.queryLengthWarning = page.getByText(/Nội dung tìm kiếm quá dài/i).or(page.locator('[data-testid="query-length-warning"]')).first();
     this.unsupportedWarningBanner = page.getByText(/Một số điều kiện chưa được hỗ trợ/i).or(page.locator('[data-testid="unsupported-warning"]')).first();
@@ -115,8 +116,9 @@ export class VmsSmartSearchPage {
     // 2. Advanced Filter
     this.advancedFilterPanel = page.locator('[data-testid="advanced-filter-panel"], aside, [class*="filter-panel"], div:has(h2:has-text("Bộ lọc nâng cao"))').first();
     this.toggleAllFiltersButton = page.getByRole('button', { name: /bộ lọc nâng cao/i }).or(page.locator('button:has-text("Bộ lọc nâng cao")')).first();
+    this.collapseAllFiltersButton = page.locator('button[title*="Thu gọn"], button[title*="Mở rộng"], button[aria-label*="Thu gọn"], button[aria-label*="Mở rộng"]').first();
     this.resetButton = page.getByRole('button', { name: /đặt lại|reset/i }).or(page.locator('button:has-text("Đặt lại")')).first();
-    this.applyFilterButton = page.getByRole('button', { name: /áp dụng bộ lọc|áp dụng/i }).or(page.locator('button:has-text("Áp dụng bộ lọc")')).first();
+    this.applyFilterButton = page.locator('aside, [class*="filter"], [class*="drawer"]').getByRole('button', { name: /áp dụng|tìm kiếm/i }).or(page.getByRole('button', { name: /áp dụng bộ lọc|áp dụng/i })).first();
 
     // 2.1 Hierarchy
     this.layoutSelector = page.getByRole('combobox', { name: /bố cục|layout/i }).or(page.locator('[data-testid="layout-select"]')).first();
@@ -289,6 +291,21 @@ export class VmsSmartSearchPage {
   expectedRelevance(totalQueryCriteria: number, matchedCriteria: number): number {
     if (totalQueryCriteria <= 0) return 0;
     return Math.round((matchedCriteria / totalQueryCriteria) * 100);
+  }
+
+  /**
+   * Thực hiện tìm kiếm và chờ response từ API Smart Search (Zero-wait Ponytail pattern)
+   */
+  async searchAndWait(prompt?: string, timeout = 30000): Promise<any> {
+    if (prompt !== undefined) {
+      await this.searchTextarea.fill(prompt);
+    }
+    const responsePromise = this.page.waitForResponse(
+      (res) => res.url().includes('/api/smart_search'),
+      { timeout }
+    );
+    await this.searchButton.click();
+    return await responsePromise;
   }
 
   /**

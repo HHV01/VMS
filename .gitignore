@@ -27,3 +27,8 @@ desktop.ini
 .agents/
 .claude/
 skills-lock.json
+
+# Backup files & Python cache
+*_backup.xlsx
+__pycache__/
+*.pyc
