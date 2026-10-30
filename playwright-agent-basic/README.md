@@ -24,9 +24,9 @@ npx playwright install chromium
 Tạo file `project/.env` từ file mẫu `project/.env.example` để khai báo URL và tài khoản môi trường test:
 
 ```env
-BASE_URL=http://<host>:<port>
-USERNAME=<tài_khoản_test>
-PASSWORD=<mật_khẩu_test>
+VMS_BASE_URL=http://<host>:<port>
+VMS_USERNAME=<tài_khoản_test>
+VMS_PASSWORD=<mật_khẩu_test>
 ```
 
 > **Lưu ý an toàn:** File `project/.env`, ảnh chụp lỗi, video và trace **không bao giờ được commit lên git** (`.gitignore` đã tự động chặn).
@@ -38,7 +38,9 @@ Cấu hình thông số dự án (host cho phép, browser, số luồng worker, 
 ## 🧪 Chạy Test & Xuất Báo Cáo
 
 ```bash
-npm run project:test -- [feature-id]               # Chạy toàn bộ test của dự án / feature, tự động xuất HTML Report
+npm run test:ss                                    # Chạy toàn bộ test suite Smart Search
+npm run test:oc                                    # Chạy toàn bộ test suite Object Counting
+npm run project:test -- ss                         # Chạy test Smart Search và tự động xuất HTML Report
 npm run project:test -- [feature-id] --grep "001"  # Chỉ chạy testcase khớp tên hoặc mã ID
 npm run project:test:stable -- [feature-id]        # Chạy lặp 2 lần để phát hiện test chập chờn (Flaky)
 npm run test:list                                  # Liệt kê danh sách test, không gọi vào hệ thống thật
@@ -79,7 +81,6 @@ Framework tích hợp sẵn **Jev AI** (mô hình System One từ TypeSafe AI) v
    - Tự động thẩm định kết quả tìm kiếm ngôn ngữ tự nhiên trong module **VMS Smart Search**.
 3. **Phân tích nguyên nhân lỗi tự động (`utils/jev-failure-analyzer.ts` & `scripts/jev_classifier.py`)**:
    - Tự động phân loại case FAIL vào 4 nhóm: `APPLICATION_BUG` (Bug thật), `ENVIRONMENT_TIMEOUT` (Mạng/môi trường), `SELECTOR_DRIFT` (Đổi DOM), `DATA_ISSUE` (Dữ liệu).
-   - Nhúng trực tiếp phân loại và đề xuất khắc phục vào Sheet 2 ("Ảnh lỗi") của Báo cáo Excel.
 
 Chạy kiểm thử riêng bộ API Jev AI:
 ```bash
@@ -88,15 +89,16 @@ npx playwright test tests/api/jev/jev.api.spec.ts
 
 ---
 
-## 📁 Cấu trúc Thư mục
+## 📂 Cấu trúc Thư mục
 
 ```text
-├── project/             # Cấu hình dự án đang test (project.config.json, .env)
+├── project/             # Cấu hình dự án đang test (project.config.json, .env.example)
 ├── pages/               # Page Object Models (POM) bám sát DOM thực tế
-├── fixtures/            # Fixtures dùng chung (lưu phiên đăng nhập 1 lần/worker qua storageState)
+├── fixtures/            # Fixtures dùng chung (lưu phiên đăng nhập qua storageState, CDP)
 ├── tests/               # Kịch bản kiểm thử (tests/ui/, tests/api/)
-├── api/                 # Client REST API chuẩn (GET, POST, PUT, DELETE) & Recorder
-├── utils/               # Tiện ích (đọc biến môi trường an toàn, che giấu secrets)
+├── api/                 # Client REST API chuẩn (GET, POST, PUT, DELETE) & Jev AI
+├── utils/               # Tiện ích (đọc biến môi trường an toàn, che giấu secrets, oracle)
+├── test-data/           # Test Fixtures đầu vào (ảnh rỗng 0b, ảnh vượt 10MB,...)
 ├── scripts/             # Runner, Report Builder và máy quét nợ kỹ thuật Ponytail
 └── docs/                # Bộ quy chuẩn kỹ thuật & Mẫu hồ sơ testcase
     ├── TESTCASE_TEMPLATE.md   # Mẫu bảng hồ sơ Test Case 12 cột chuẩn đa dự án
@@ -107,20 +109,10 @@ npx playwright test tests/api/jev/jev.api.spec.ts
 
 ---
 
-## 📝 Mẫu Hồ Sơ Test Case Chuẩn (Generic Template)
-
-Khi khởi tạo dự án mới, sử dụng mẫu hồ sơ testcase chuẩn tại:
-* 📄 [`docs/TESTCASE_TEMPLATE.md`](docs/TESTCASE_TEMPLATE.md)
-* 📗 [`docs/TESTCASE_TEMPLATE.csv`](docs/TESTCASE_TEMPLATE.csv)
-
-Mẫu gồm **12 cột chuẩn công nghiệp**: `Test_Case_ID`, `Module`, `Sub_Module`, `Test_Type`, `Priority`, `Test_Title`, `Preconditions`, `Test_Steps`, `Test_Data`, `Expected_Result`, `Automation_Status`, `Automation_Ref`.
-
----
-
-## 📐 Quy ước Lập trình
+## 📜 Quy ước Lập trình
 
 Đọc kỹ [`AGENTS.md`](AGENTS.md) trước khi phát triển:
-1. **Tuyệt đối không dùng chờ cứng (`waitForTimeout`) hay `networkidle`.** Luôn chờ theo trạng thái phần tử (`waitFor({ state: 'visible' })`, `waitForURL`).
-2. **Ưu tiên Locator theo Accessibility (`getByRole`, `getByLabel`).**
+1. **Tuyệt đối không dùng chờ cứng (`waitForTimeout`) hay `networkidle`.** Luôn chờ theo trạng thái phần tử hoặc network response (`searchAndWait()`).
+2. **Ưu tiên Locator theo Accessibility (`getByRole`, `getByText`, `getByLabel`).**
 3. **Không hard-code URL hoặc credentials** vào mã nguồn.
 4. **Không hạ assertion** để test dễ xanh giả tạo.
