@@ -4,7 +4,7 @@ import { join, relative, sep } from 'node:path';
 
 // Gom mọi marker `ponytail:` thành sổ nợ. Marker thiếu điều kiện làm lại bị coi là lỗi
 // vì khoản nợ không có trigger sẽ mục âm thầm. Quy ước nằm trong
-// docs/ponytail_qa_rules.md.
+// rules/ponytail_qa_rules.md.
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const SKIP = new Set(['node_modules', '.git', 'artifacts', 'reports', 'build', 'dist']);

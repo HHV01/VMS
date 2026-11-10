@@ -166,3 +166,4 @@ def update_smart_search_ver2():
 if __name__ == "__main__":
     update_object_counting()
     update_smart_search_ver2()
+

@@ -12,3 +12,4 @@ SC-OC-01,Đếm đối tượng (Object Counting),VMS-OC-UI-001,Kiểm tra loạ
 2. Quan sát loại đếm được chọn mặc định.",Nút loại đếm Đường cắt (Crossline) được kích hoạt mặc định.,Loại đếm Crossline được active và highlight sẵn sàng.,Smoke,PASS,Đã có test tự động Playwright tests/ui/vms/vms-object-counting.spec.ts:24,Hoàng Hồng Vân,Automated
 SC-OC-02,Đếm đối tượng - Hiển thị đồ họa,VMS-OC-UI-002,Đánh giá cảm quan màu sắc và độ dày đường vẽ Crossline trên luồng video trực tiếp,Đang mở Live View camera giám sát,"1. Quan sát đường kẻ vẽ Crossline trên player video.
 2. Đánh giá tính thẩm mỹ và độ tương phản với nền đường.",Đường vẽ rõ nét; Độ dày 2px; Màu sắc tương phản tốt với mặt đường.,Đường nét hiển thị chuẩn thẩm mỹ.,Function,PASS,Cần mắt người đánh giá cảm quan thực tế trên màn hình hiển thị trực tiếp.,Nguyễn Thị Minh Tâm,Manual Only
+

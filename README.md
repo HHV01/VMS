@@ -26,11 +26,18 @@ vms-automation/ (Root Repository VMS)
 │   ├── BO_TESTCASE_VMS_OBJECT_COUNTING_HOAN_CHINH.xlsx   # Master Test Cases module Object Counting (86 cases)
 │   └── Bao_cao_Defect_Smart_Search_VMS_kem_hinh_anh.xlsx # Báo cáo Defect Smart Search kèm ảnh thumbnail & flow
 │
-├── 📁 docs/                                              # TÀI LIỆU ĐẶC TẢ & QUY CHUẨN KỸ THUẬT
+├── 📁 docs/                                              # TÀI LIỆU ĐẶC TẢ NGHIỆP VỤ & BIỂU MẪU TEST CASE
 │   ├── PSD_BecaVMS.docx                                  # Tài liệu đặc tả yêu cầu nghiệp vụ hệ thống VMS
+│   ├── TESTCASE_TEMPLATE.md                              # Quy chuẩn biểu mẫu kịch bản kiểm thử Web UI & API
+│   ├── TESTCASE_TEMPLATE_CHUAN.xlsx                      # File Excel mẫu chuẩn 2-Sheet (Web UI 13 cột + API 15 cột)
+│   ├── TESTCASE_UI_TEMPLATE.csv                          # File CSV mẫu chuẩn 13 cột cho Web UI
+│   └── TESTCASE_API_TEMPLATE.csv                         # File CSV mẫu chuẩn 15 cột cho API
+│
+├── 📁 rules/                                             # QUY CHUẨN KỸ THUẬT & NGUYÊN TẮC KIỂM THỬ
 │   ├── playwright_rules.md                               # Quy chuẩn viết Playwright theo Accessibility & Web-First
 │   ├── ponytail_qa_rules.md                              # Triết lý tối giản mã nguồn kiểm thử Ponytail
-│   └── ponytail_audit.md                                 # Hướng dẫn kiểm định chất lượng test suite
+│   ├── ponytail_audit.md                                 # Hướng dẫn kiểm định chất lượng test suite
+│   └── ponytail_review.md                                # Quy tắc rà soát mã nguồn kiểm thử (Code Review)
 │
 ├── 📁 pages/                                             # PAGE OBJECT MODEL (POM) CHO GIAO DIỆN VMS
 │   ├── vms-smart-search.page.ts                          # POM module Tìm kiếm thông minh (tích hợp searchAndWait)

@@ -4,11 +4,11 @@ Repo automation test bằng Playwright + TypeScript theo chuẩn Ponytail. Mọi
 
 ## Trước khi sửa code
 
-Đọc và áp dụng [`docs/ponytail_qa_rules.md`](docs/ponytail_qa_rules.md): dùng lại code có sẵn trước khi viết mới, sửa nguyên nhân gốc, giữ assertion có ý nghĩa.
+Đọc và áp dụng [`rules/ponytail_qa_rules.md`](rules/ponytail_qa_rules.md): dùng lại code có sẵn trước khi viết mới, sửa nguyên nhân gốc, giữ assertion có ý nghĩa.
 
-Quy tắc Playwright của framework nằm ở [`docs/playwright_rules.md`](docs/playwright_rules.md).
+Quy tắc Playwright của framework nằm ở [`rules/playwright_rules.md`](rules/playwright_rules.md).
 
-Mẫu hồ sơ testcase chuẩn nằm ở [`docs/TESTCASE_TEMPLATE.md`](docs/TESTCASE_TEMPLATE.md) và [`docs/TESTCASE_TEMPLATE.csv`](docs/TESTCASE_TEMPLATE.csv).
+Mẫu hồ sơ testcase chuẩn nằm ở [`docs/TESTCASE_TEMPLATE.md`](docs/TESTCASE_TEMPLATE.md), [`docs/TESTCASE_UI_TEMPLATE.csv`](docs/TESTCASE_UI_TEMPLATE.csv) và [`docs/TESTCASE_API_TEMPLATE.csv`](docs/TESTCASE_API_TEMPLATE.csv).
 
 ## Ràng buộc bắt buộc
 

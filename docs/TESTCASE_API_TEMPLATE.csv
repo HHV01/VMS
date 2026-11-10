@@ -12,3 +12,4 @@ SS_API_01,Tìm kiếm thông minh (Smart Search API),SS_API-002,Gọi API tìm k
 OC_API_01,Thống kê Đếm đối tượng (Object Counting Stats API),OC_API-001,Lấy dữ liệu thống kê lưu lượng theo giờ cho quy tắc Crossline,Có Access Token; Camera đã cấu hình quy tắc Crossline hoạt động,Query params: cameraId=LH-HV-LL_CAM-04&ruleCode=R-10156&range=today,"1. Gửi GET request tới /api/v1/object-counting/statistics.
 2. Truyền tham số camera và mã rule.
 3. Kiểm tra payload trả về.",GET,/api/v1/object-counting/statistics,"HTTP 200 OK; JSON trả về mảng thống kê theo từng khung giờ; tổng số lượng đếm khớp thực tế.",HTTP 200 OK; Dữ liệu thống kê trả về đầy đủ 24 buckets theo giờ.,Regression,PASS,Đã tích hợp test trong vms-object-counting.spec.ts.,Automated
+
