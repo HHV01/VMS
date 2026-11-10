@@ -1,10 +1,15 @@
+import os
 import openpyxl
 import sys
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-# 1. Update Testcase version 2 workbook
-wb_path = r'c:\Users\VNTT\OneDrive - VNTT\Desktop\Backup\Dự án\VMS\Testcase chức năng hệ thống VMS version 2.xlsx'
+repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+wb_path = os.path.join(repo_root, 'testcases', 'Testcase chức năng hệ thống VMS version 2.xlsx')
+
+if not os.path.exists(wb_path):
+    wb_path = os.path.join(repo_root, 'Testcase chức năng hệ thống VMS version 2.xlsx')
+
 wb = openpyxl.load_workbook(wb_path)
 ws = wb['Smart Search ver2 ']
 
@@ -21,7 +26,7 @@ ws.cell(row=59, column=12, value='Fail')
 ws.cell(row=59, column=10, value='[Retest 22/10/2026] VẪN CÒN LỖI: Bảng thuộc tính đối tượng Phương tiện chỉ có Loại xe, Biển số, Màu sắc. Hoàn toàn chưa có trường "Hướng đi" theo đặc tả PSD 10.3.5.')
 
 wb.save(wb_path)
-print('Successfully updated Testcase version 2 workbook!')
+print(f'Successfully updated Testcase version 2 workbook at: {wb_path}')
 
 # Check counts
 passes = sum(1 for r in range(12, ws.max_row+1) if ws.cell(row=r, column=12).value == 'Pass')

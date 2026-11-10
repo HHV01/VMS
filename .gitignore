@@ -32,3 +32,6 @@ skills-lock.json
 *_backup.xlsx
 __pycache__/
 *.pyc
+
+# Temporary outputs
+outputs/

@@ -201,8 +201,9 @@ for d in defects_data:
     else:
         cell_l.value = f'[Ảnh không tồn tại: {img_file}]'
 
-# Save ONLY to the single requested path
-dest1 = r'c:\Users\VNTT\OneDrive - VNTT\Desktop\Backup\Dự án\VMS\Bao_cao_Defect_Smart_Search_VMS_kem_hinh_anh.xlsx'
+# Save to testcases folder in repo
+repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+dest1 = os.path.join(repo_root, 'testcases', 'Bao_cao_Defect_Smart_Search_VMS_kem_hinh_anh.xlsx')
 wb.save(dest1)
 
 print(f'\nSuccessfully generated professional Excel report with images at single location:\n{dest1}')

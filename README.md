@@ -1,105 +1,100 @@
-# VMS — Video Management System Automation Testing Framework
+# VMS Automation Testing Framework (`vms-automation`)
 
-Repository lưu trữ tài liệu kiểm thử, kịch bản test tự động (Playwright + TypeScript) và báo cáo Defect của hệ thống **VMS (Video Management System)** — Becamex Smart Industrial Park.
+Repository kiểm thử tự động hóa (QA Automation Testing Framework) chuyên biệt cho hệ thống **VMS (Video Management System)** — Becamex Smart Industrial Park, xây dựng trên nền tảng **Playwright + TypeScript** tuân thủ triết lý **Ponytail** và mô hình **Page Object Model (POM)**.
 
 ---
 
-## 📁 Cấu trúc Tổng thể Repository (Repository Structure)
+## 📁 Cấu trúc Repository Chuẩn hóa (Single Project Structure)
+
+Repository được chuẩn hóa theo quy chuẩn **1 Repo cho 1 Dự án độc lập**, loại bỏ toàn bộ các tệp ngoại lai và đưa framework lên cấp thư mục gốc (Root-level):
 
 ```text
-VMS/
-├── Bao_cao_Defect_Smart_Search_VMS_kem_hinh_anh.xlsx  # Báo cáo Defect Smart Search kèm ảnh thumbnail & flow tái hiện
-├── Hinh_anh_Defect_Full_HD/                           # Thư mục lưu trữ hình ảnh bằng chứng lỗi kích thước gốc Full HD
-│   ├── 1_SS_BUG_01_Tu_ngay_lon_hon_Den_ngay.png
-│   ├── 2_SS_BUG_02_Phuong_tien_thieu_huong_di.png
-│   └── 3_SS_BUG_03_Loc_bien_so_51_tra_ve_sai.png
-├── Testcase chức năng hệ thống VMS version 2.xlsx     # File Excel Master quản lý toàn bộ 84 Test Cases Smart Search (Sheet ver2)
-├── BO_TESTCASE_VMS_OBJECT_COUNTING_HOAN_CHINH.xlsx    # File Excel Master kiểm thử module Object Counting (Đếm đối tượng)
-├── PSD_BecaVMS.docx                                   # Tài liệu đặc tả yêu cầu nghiệp vụ hệ thống (PSD)
-├── Smart-Pole-TestCase.csv                            # Kịch bản kiểm thử các tính năng phần cứng Smart Pole
-├── evidence_defects/                                  # Bằng chứng kiểm thử và lỗi trực tiếp trên giao diện Live
+vms-automation/ (Root Repository VMS)
 │
-└── playwright-agent-basic/                            # Core Framework Automation Testing (Playwright + TypeScript)
-    ├── api/                                           # Các module giao tiếp REST API & Client API
-    │   ├── base.api.ts                                # Base API client chuẩn
-    │   ├── example.api.ts                             # Ví dụ API calls
-    │   └── jev.api.ts                                 # Tích hợp TypeSafe Jev AI (System One Decision Model)
-    │
-    ├── pages/                                         # Page Object Model (POM) ánh xạ trực tiếp các trang chức năng
-    │   ├── vms-smart-search.page.ts                   # POM Module Tìm kiếm thông minh (Smart Search)
-    │   └── vms-object-counting.page.ts                # POM Module Đếm đối tượng (Object Counting)
-    │
-    ├── tests/                                         # Toàn bộ Test Suite kiểm thử tự động
-    │   ├── ui/
-    │   │   └── vms/
-    │   │       ├── vms-smart-search.spec.ts           # 53 test cases kiểm thử giao diện & API Smart Search
-    │   │       └── vms-object-counting.spec.ts        # Test suite module Đếm đối tượng
-    │   └── api/
-    │       ├── SAMPLE/health.api.spec.ts              # Kiểm tra sức khỏe hệ thống
-    │       └── jev/jev.api.spec.ts                    # Test bộ quyết định AI Jev
-    │
-    ├── fixtures/                                      # Custom Fixtures (Auth Storage State, CDP Browser context)
-    │   ├── base.fixture.ts
-    │   ├── vms-auth.fixture.ts
-    │   └── vms-cdp.fixture.ts
-    │
-    ├── utils/                                         # Các tiện ích bổ trợ và bộ xử lý dữ liệu
-    │   ├── env.ts                                     # Đọc và xác thực biến môi trường an toàn
-    │   ├── helper.ts                                  # Tiện ích định dạng ngày giờ, chuỗi
-    │   ├── jev-failure-analyzer.ts                    # Phân tích nguyên nhân lỗi kiểm thử tự động
-    │   ├── jev-smart-oracle.ts                        # Thẩm định kết quả tìm kiếm ngữ nghĩa
-    │   ├── smart-search-api.map.ts                    # Bản đồ URL endpoint API Smart Search
-    │   └── smart-search-mock.data.ts                  # Dữ liệu giả lập mock cho các mã lỗi HTTP 4xx, 5xx
-    │
-    ├── test-data/                                     # Dữ liệu kiểm thử đầu vào (Test Fixtures)
-    │   ├── empty_0b.jpg                               # Ảnh trống 0 bytes phục vụ test biên
-    │   ├── oversize_11mb.jpg                          # Ảnh vượt quá dung lượng 10MB phục vụ test validation
-    │   ├── invalid_fake_image.jpg                     # Tệp sai định dạng
-    │   ├── synthetic_car.png                          # Ảnh mẫu nhận diện xe ô tô
-    │   └── smart-search.assumptions.ts                # Các giả định kiểm thử Smart Search
-    │
-    ├── scripts/                                       # Công cụ thực thi và báo cáo của framework
-    │   ├── project-test.mjs                           # Runner đa luồng xuất báo cáo HTML trực quan
-    │   ├── ponytail-debt.mjs                          # Kiểm tra sổ nợ kỹ thuật theo chuẩn Ponytail
-    │   ├── build-playwright-report.mjs                # Bộ tạo báo cáo test tùy biến
-    │   ├── save-shared-auth.mjs                       # Lưu trữ phiên đăng nhập vào storageState
-    │   ├── export_excel_report.py                     # Xuất báo cáo kiểm thử ra định dạng Excel
-    │   ├── generate_defect_excel_with_images.py       # Tự động tạo Báo cáo Defect Excel có nhúng ảnh chụp màn hình
-    │   ├── apply_retest_to_testcase_excel.py          # Đồng bộ kết quả retest tự động vào file Testcase Master
-    │   └── update_testcase_ver2_status.py             # Cập nhật trạng thái từng case của Sheet ver2
-    │
-    ├── project/                                       # Cấu hình dự án và môi trường
-    │   ├── project.config.json                        # Cấu hình worker, timeout, baseUrl
-    │   └── .env.example                               # File mẫu cấu hình biến môi trường
-    │
-    ├── docs/                                          # Tài liệu hướng dẫn và quy tắc kiểm thử
-    │   ├── playwright_rules.md                        # Quy tắc viết kịch bản Playwright
-    │   ├── ponytail_qa_rules.md                       # Triết lý viết test tối giản Ponytail
-    │   ├── ponytail_audit.md                          # Hướng dẫn kiểm định chất lượng test
-    │   ├── TESTCASE_TEMPLATE.md                       # Mẫu hồ sơ test case chuẩn 12 cột
-    │   └── TESTCASE_TEMPLATE.csv                      # File CSV mẫu
-    │
-    ├── package.json                                   # Khai báo scripts và thư viện phụ thuộc
-    ├── playwright.config.ts                           # File cấu hình trung tâm của Playwright Test Runner
-    ├── tsconfig.json                                  # Cấu hình trình biên dịch TypeScript
-    └── AGENTS.md                                      # Quy chuẩn bắt buộc dành cho AI Agent & Developer
+├── 📁 .github/                                           # CI/CD Tự động hóa kiểm thử
+│   └── workflows/
+│       └── quality.yml                                   # GitHub Actions: Chạy npm run verify tự động trên PR
+│
+├── 📄 package.json                                       # Định danh package: "vms-automation", scripts thực thi
+├── 📄 playwright.config.ts                               # Cấu hình trung tâm Playwright Test Runner (workers, timeouts)
+├── 📄 tsconfig.json                                      # Cấu hình biên dịch TypeScript
+├── 📄 AGENTS.md                                          # Quy tắc phát triển kiểm thử bắt buộc (Zero rigid waits)
+├── 📄 README.md                                          # Tài liệu hướng dẫn cài đặt & vận hành hệ thống kiểm thử
+│
+├── 📁 testcases/                                         # HỒ SƠ TEST CASE VMS & BÁO CÁO DEFECT
+│   ├── Testcase chức năng hệ thống VMS version 2.xlsx    # Master Test Cases module Smart Search (84 cases)
+│   ├── BO_TESTCASE_VMS_OBJECT_COUNTING_HOAN_CHINH.xlsx   # Master Test Cases module Object Counting (86 cases)
+│   └── Bao_cao_Defect_Smart_Search_VMS_kem_hinh_anh.xlsx # Báo cáo Defect Smart Search kèm ảnh thumbnail & flow
+│
+├── 📁 docs/                                              # TÀI LIỆU ĐẶC TẢ & QUY CHUẨN KỸ THUẬT
+│   ├── PSD_BecaVMS.docx                                  # Tài liệu đặc tả yêu cầu nghiệp vụ hệ thống VMS
+│   ├── playwright_rules.md                               # Quy chuẩn viết Playwright theo Accessibility & Web-First
+│   ├── ponytail_qa_rules.md                              # Triết lý tối giản mã nguồn kiểm thử Ponytail
+│   └── ponytail_audit.md                                 # Hướng dẫn kiểm định chất lượng test suite
+│
+├── 📁 pages/                                             # PAGE OBJECT MODEL (POM) CHO GIAO DIỆN VMS
+│   ├── vms-smart-search.page.ts                          # POM module Tìm kiếm thông minh (tích hợp searchAndWait)
+│   └── vms-object-counting.page.ts                       # POM module Đếm đối tượng
+│
+├── 📁 tests/                                             # KỊCH BẢN KIỂM THỬ TỰ ĐỘNG (145 TESTS)
+│   ├── ui/
+│   │   └── vms/
+│   │       ├── vms-smart-search.spec.ts                  # 53 test cases Smart Search (Wave 1 -> Wave 4)
+│   │       └── vms-object-counting.spec.ts               # 87 test cases Object Counting (Live, Rules, Chart)
+│   └── api/
+│       └── jev/jev.api.spec.ts                           # 5 test cases AI Test Oracle & Phân loại lỗi Jev AI
+│
+├── 📁 fixtures/                                          # QUẢN LÝ PHIÊN ĐĂNG NHẬP & BROWSER CONTEXT
+│   ├── vms-auth.fixture.ts                               # Chia sẻ phiên đăng nhập VMS qua storageState
+│   ├── vms-cdp.fixture.ts                                # Chrome DevTools Protocol context
+│   └── base.fixture.ts                                   # Base test fixture
+│
+├── 📁 project/                                           # CẤU HÌNH MÔI TRƯỜNG & TARGET HOST
+│   ├── project.config.json                               # Khai báo host VMS cho phép, browser, retry
+│   └── .env.example                                      # Mẫu biến môi trường (VMS_BASE_URL, credentials)
+│
+├── 📁 utils/                                             # TIỆN ÍCH HỖ TRỢ & BỘ XỬ LÝ DỮ LIỆU
+│   ├── env.ts                                            # Đọc biến môi trường an toàn type-safe
+│   ├── helper.ts                                         # Hàm tiện ích xử lý định dạng chuỗi, ngày giờ
+│   ├── smart-search-api.map.ts                           # Bản đồ endpoint API backend Smart Search
+│   ├── smart-search-mock.data.ts                         # Dữ liệu giả lập mock cho các mã lỗi HTTP 400, 422, 500
+│   ├── jev-smart-oracle.ts                               # AI Oracle đánh giá ngữ nghĩa kết quả tìm kiếm VMS
+│   └── jev-failure-analyzer.ts                           # Tự động phân tích và gán nhãn nguyên nhân lỗi test
+│
+├── 📁 test-data/                                         # DỮ LIỆU KIỂM THỬ ĐẦU VÀO (STATIC FIXTURES)
+│   ├── empty_0b.jpg                                      # File rỗng 0 bytes phục vụ test lỗi upload
+│   ├── oversize_11mb.jpg                                 # File ảnh 11MB phục vụ test biên dung lượng (>10MB)
+│   ├── invalid_fake_image.jpg                            # File giả mạo định dạng phục vụ negative testing
+│   └── synthetic_car.png                                 # Ảnh mẫu nhận diện phương tiện xe ô tô
+│
+├── 📁 scripts/                                           # BỘ CÔNG CỤ THỰC THI & TỰ ĐỘNG HÓA BÁO CÁO
+│   ├── project-test.mjs                                  # Test runner tự động xuất HTML Report
+│   ├── ponytail-debt.mjs                                 # Máy quét kiểm tra sổ nợ kỹ thuật (Ponytail Debt)
+│   ├── export_excel_report.py                            # Xuất kết quả kiểm thử ra file Excel
+│   ├── generate_defect_excel_with_images.py              # Tự động tạo Báo cáo Defect Excel có nhúng ảnh chụp
+│   ├── apply_retest_to_testcase_excel.py                 # Đồng bộ kết quả retest tự động vào file Master Excel
+│   └── update_testcase_ver2_status.py                    # Cập nhật trạng thái từng case của Sheet ver2
+│
+├── 📁 Hinh_anh_Defect_Full_HD/                           # BẰNG CHỨNG DEFECT ĐỘ PHÂN GIẢI CAO (FULL HD)
+│   └── 2_SS_BUG_02_Phuong_tien_thieu_huong_di.png        # Bằng chứng lỗi thiếu trường Hướng đi (SS-FLT-016)
+│
+└── 📁 evidence_defects/                                  # Ảnh chụp bằng chứng lỗi trực tiếp trên hệ thống Live
 ```
 
 ---
 
-## 🚀 Hướng Dẫn Cài Đặt & Chạy Kiểm Thử
+## 🚀 Hướng Dẫn Cài Đặt & Chạy Kiểm Thử (Trực tiếp tại Root)
 
 ### 1. Cài đặt môi trường
 
 ```bash
-cd playwright-agent-basic
 npm install
 npx playwright install chromium
 ```
 
 ### 2. Cấu hình biến môi trường
 
-Tạo file `playwright-agent-basic/project/.env` từ file mẫu `project/.env.example`:
+Tạo file `project/.env` từ file mẫu `project/.env.example`:
 
 ```env
 VMS_BASE_URL=http://180.148.1.242:8004
@@ -109,30 +104,28 @@ VMS_PASSWORD=becamex@123
 VMS_TIMEOUT=30000
 ```
 
-### 3. Thực thi kịch bản kiểm thử
+### 3. Thực thi kiểm thử
 
 ```bash
-# 1. Chạy toàn bộ test suite Smart Search
-npm run test:ss
-
-# 2. Chạy kiểm tra chất lượng mã nguồn & sổ nợ (0 Token / Không gọi server thật)
+# 1. Kiểm tra chất lượng mã nguồn & sổ nợ kỹ thuật (0 Token / Không gọi server thật)
 npm run verify
 
-# 3. Chạy nhóm test case cụ thể (ví dụ retest các case live)
-npx playwright test tests/ui/vms/vms-smart-search.spec.ts --grep "@live"
+# 2. Chạy toàn bộ test suite Smart Search
+npm run test:ss
 
-# 4. Chạy kiểm tra các ca kiểm thử mock lỗi (400, 422, 500)
-npx playwright test tests/ui/vms/vms-smart-search.spec.ts --grep "@mock"
+# 3. Chạy toàn bộ test suite Đếm đối tượng (Object Counting)
+npm run test:oc
 
-# 5. Xuất báo cáo HTML chi tiết
+# 4. Chạy kiểm thử cụ thể theo tag hoặc Case ID
+npx playwright test tests/ui/vms/vms-smart-search.spec.ts --grep "SS-FLT-016"
+
+# 5. Chạy test và tự động xuất HTML Report
 npm run project:test -- ss
 ```
 
 ---
 
-## 📊 Bảng Tổng Hợp Trạng Thái Kiểm Thử (Status Dashboard)
-
-### Module Smart Search (Tìm kiếm thông minh) — Build v2.8.0
+## 📊 Hiện Trạng Kiểm Thử VMS Smart Search (Build v2.8.0)
 
 | Nhóm chức năng | Tổng số Test Cases | Pass | Fail | Tỷ lệ Đạt (%) |
 | :--- | :---: | :---: | :---: | :---: |
@@ -145,15 +138,15 @@ npm run project:test -- ss
 > [!NOTE]
 > **Defect thực tế duy nhất còn tồn đọng**:
 > - **Mã Test Case**: `SS-FLT-016`
-> - **Tiêu đề**: Bảng thuộc tính đối tượng Phương tiện thiếu trường *"Hướng đi"*.
+> - **Tiêu đề**: Bảng thuộc tính đối tượng Phương tiện thiếu trường lựa chọn *"Hướng đi"*.
 > - **Mức độ**: Medium
 > - **Bằng chứng**: [`Hinh_anh_Defect_Full_HD/2_SS_BUG_02_Phuong_tien_thieu_huong_di.png`](Hinh_anh_Defect_Full_HD/2_SS_BUG_02_Phuong_tien_thieu_huong_di.png)
-> - **Tài liệu**: Chi tiết xem tại [`Bao_cao_Defect_Smart_Search_VMS_kem_hinh_anh.xlsx`](Bao_cao_Defect_Smart_Search_VMS_kem_hinh_anh.xlsx).
+> - **Chi tiết**: Xem tại file [`testcases/Bao_cao_Defect_Smart_Search_VMS_kem_hinh_anh.xlsx`](testcases/Bao_cao_Defect_Smart_Search_VMS_kem_hinh_anh.xlsx).
 
 ---
 
-## 🛡️ Tiêu Chuẩn Kỹ Thuật (Ponytail & Quality Gate)
+## 🛡️ Tiêu Chuẩn Kỹ Thuật (Ponytail Principles)
 
-- **Zero Rigid Sleeps**: Toàn bộ các thao tác tìm kiếm và chuyển trang sử dụng `searchAndWait()` và Web-First Assertions thay cho `waitForTimeout`.
-- **Clean POM**: Ánh xạ theo Accessibility Tree (`getByRole`, `getByText`) tăng tính bền vững khi DOM thay đổi.
-- **Auto Quality Check**: `npm run verify` chạy tự động `tsc --noEmit` + `ponytail:debt` + `playwright test --list` trước khi commit.
+1. **Zero Rigid Sleep**: Tuyệt đối không sử dụng `page.waitForTimeout()` tĩnh trong luồng chính; toàn bộ thao tác sử dụng `ss.searchAndWait()` và Web-First Assertions (`toBeVisible()`, `toHaveText()`).
+2. **Accessibility-First Locators**: Sử dụng `getByRole`, `getByLabel`, `getByText` để đảm bảo test không bị vỡ khi Dev thay đổi class styling hoặc cấu trúc DOM phụ.
+3. **Continuous Quality Gate**: Script `npm run verify` chạy tự động `tsc --noEmit` + `ponytail:debt` + `playwright test --list` trước mỗi commit để đảm bảo repo luôn xanh và sạch nợ kỹ thuật.
