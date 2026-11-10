@@ -1,0 +1,14 @@
+Mã kịch bản (Scenario ID),Tên kịch bản kiểm thử,Mã kiểm thử (Test Case ID),Kịch bản chi tiết,Điều kiện tiên quyết,Các bước kiểm thử,Kết quả mong đợi,Kết quả thực tế,Loại kiểm thử (Type),Tình trạng (Status),Chú thích (Notes),Tester,Automation Status
+SC-SS-01,Tìm kiếm thông minh (Smart Search),VMS-SS-UI-001,Tìm kiếm phương tiện với từ khóa "xe ô tô" trong khoảng thời gian 7 ngày,Đã đăng nhập tài khoản Becamex; Trang Smart Search mở sẵn; Có dữ liệu AI trong 7 ngày,"1. Nhập ""xe ô tô"" vào ô tìm kiếm.
+2. Chọn khoảng thời gian 7 ngày.
+3. Nhấn nút Tìm kiếm.
+4. Quan sát kết quả hiển thị.",Hệ thống hiển thị danh sách thẻ kết quả khớp xe ô tô; Có thumbnail và video tương ứng.,Hiển thị 802 cards kết quả; Dữ liệu khớp chính xác; Video phát mượt mà.,Regression,PASS,Đã có test tự động Playwright tests/ui/vms/vms-smart-search.spec.ts:35,Hoàng Hồng Vân,Automated
+SC-SS-01,Tìm kiếm thông minh (Smart Search),VMS-SS-UI-002,Tìm kiếm người với từ khóa "người mặc áo đỏ",Đã đăng nhập tài khoản Becamex; Trang Smart Search mở sẵn,"1. Nhập ""người mặc áo đỏ"" vào ô tìm kiếm.
+2. Chọn camera khu vực Cổng chính.
+3. Bấm Tìm kiếm.",Hiển thị danh sách kết quả đối tượng người có màu áo đỏ; Bóc tách metadata chính xác.,Hiển thị đúng 45 thẻ kết quả; AI bóc tách: kind: person; color: red.,Function,PASS,Đã có test tự động Playwright tests/ui/vms/vms-smart-search.spec.ts:120,Hoàng Hồng Vân,Automated
+SC-SS-02,Tìm kiếm thông minh - Giới hạn & Ngoại lệ,VMS-SS-UI-003,Cảnh báo độ dài câu truy vấn vượt quá 500 ký tự (BR-NL-08),Đã mở trang Smart Search,"1. Dán chuỗi văn bản dài 520 ký tự vào ô tìm kiếm.
+2. Quan sát phản hồi của giao diện.",Hệ thống hiển thị cảnh báo đỏ hoặc ngăn không cho nhập quá 500 ký tự.,Không hiển thị cảnh báo; Cho phép nhập và tìm kiếm gây lỗi 500 từ backend.,Function,FAIL,Defect BUG_03: Thiếu cảnh báo giới hạn 500 ký tự. Xem ảnh lỗi BUG_03.,Nguyễn Thị Minh Tâm,Automated
+SC-OC-01,Đếm đối tượng (Object Counting),VMS-OC-UI-001,Kiểm tra loại đếm mặc định là Crossline (Đường cắt) khi mở trang,Đã đăng nhập VMS; Tài khoản có quyền xem Đếm đối tượng,"1. Điều hướng tới menu Phân tích video thông minh -> Đếm đối tượng.
+2. Quan sát loại đếm được chọn mặc định.",Nút loại đếm Đường cắt (Crossline) được kích hoạt mặc định.,Loại đếm Crossline được active và highlight sẵn sàng.,Smoke,PASS,Đã có test tự động Playwright tests/ui/vms/vms-object-counting.spec.ts:24,Hoàng Hồng Vân,Automated
+SC-OC-02,Đếm đối tượng - Hiển thị đồ họa,VMS-OC-UI-002,Đánh giá cảm quan màu sắc và độ dày đường vẽ Crossline trên luồng video trực tiếp,Đang mở Live View camera giám sát,"1. Quan sát đường kẻ vẽ Crossline trên player video.
+2. Đánh giá tính thẩm mỹ và độ tương phản với nền đường.",Đường vẽ rõ nét; Độ dày 2px; Màu sắc tương phản tốt với mặt đường.,Đường nét hiển thị chuẩn thẩm mỹ.,Function,PASS,Cần mắt người đánh giá cảm quan thực tế trên màn hình hiển thị trực tiếp.,Nguyễn Thị Minh Tâm,Manual Only
